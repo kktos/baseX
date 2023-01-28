@@ -1,9 +1,4 @@
-import {
-	addArray,
-	getArrayItem,
-	getArraySize,
-	setArrayItem
-} from "./arrays";
+import { addArray, getArrayItem, getArraySize, setArrayItem } from "./arrays";
 import { TYPES } from "./defs";
 
 const MAX_STRINGS = 64;
@@ -40,7 +35,7 @@ export function getString(idx: number) {
 	return result;
 }
 
-let tempStringsIdx;
+// let tempStringsIdx;
 export function resetTempStrings() {
 	// strings.length= tempStringsIdx;
 }

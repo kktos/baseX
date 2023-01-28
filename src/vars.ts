@@ -32,7 +32,7 @@ function readWord(idx: number) {
 	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
 }
 
-function writeWord(idx: number, word) {
+function writeWord(idx: number, word: number) {
 	varsBuffer[idx] = word & 0xff;
 	varsBuffer[idx + 1] = (word >> 8) & 0xff;
 }
@@ -42,7 +42,7 @@ function readVarByte(idx: number, field: number) {
 	return varsBuffer[idx];
 }
 
-function writeVarByte(idx: number, field: number, byte) {
+function writeVarByte(idx: number, field: number, byte: number) {
 	// console.log("writeVarByte", idx, EnumToName(FIELDS, field), byte);
 
 	idx = idx * VAR_RECORD_SIZE + field + 2;
@@ -56,7 +56,7 @@ function readVarWord(idx: number, field: number) {
 	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
 }
 
-function writeVarWord(idx: number, field: number, word) {
+function writeVarWord(idx: number, field: number, word: number) {
 	// console.log("writeVarWord", idx, EnumToName(FIELDS, field), word);
 
 	idx = idx * VAR_RECORD_SIZE + field + 2;
@@ -68,12 +68,12 @@ function writeVarWord(idx: number, field: number, word) {
 
 export function addVarNameIdx(
 	nameIdx: number,
-	level,
-	varType,
+	level: number,
+	varType: number,
 	isArray = false,
 	isDeclared = false,
 ) {
-	let count = readWord(0);
+	const count = readWord(0);
 	let slotCount = 1;
 
 	writeVarByte(
@@ -97,18 +97,23 @@ export function addVarNameIdx(
 	return count;
 }
 
-export function addVar(name: string, level, isArray = false, isDeclared = false) {
+export function addVar(
+	name: string,
+	level: number,
+	isArray = false,
+	isDeclared = false,
+) {
 	const nameIdx = addString(name);
 	const varType = getTypeFromName(name);
 
 	return addVarNameIdx(nameIdx, level, varType, isArray, isDeclared);
 }
 
-export function declareVar(name: string, level, isArray) {
+export function declareVar(name: string, level: number, isArray = false) {
 	return addVar(name, level, isArray, true);
 }
 
-export function removeVarsForLevel(level) {
+export function removeVarsForLevel(level: number) {
 	let count = readWord(0);
 	if (!count) return -1;
 
@@ -159,7 +164,7 @@ export function setVarFunction(idx: number) {
 	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | TYPES.FUNCTION);
 }
 
-export function setVar(idx: number, value) {
+export function setVar(idx: number, value: number) {
 	const varType = getVarType(idx);
 	if (varType === TYPES.float) {
 		const buffer = new Uint8Array(4);
@@ -213,7 +218,7 @@ export function getTypeFromName(name: string) {
 	return varType;
 }
 
-export function setVarType(idx: number, type) {
+export function setVarType(idx: number, type: number) {
 	return writeVarByte(idx, FIELDS.TYPE, (getVarType(idx) & TYPES.FLAGS) | type);
 }
 
@@ -230,7 +235,7 @@ export function isVarFunction(idx: number) {
 }
 
 export function addIteratorVar(idx: number) {
-	let count = readWord(0);
+	const count = readWord(0);
 	writeWord(0, count + 2);
 
 	writeVarByte(count, FIELDS.TYPE, TYPES.iterator);
@@ -248,17 +253,17 @@ export function addIteratorVar(idx: number) {
 	return count;
 }
 
-export function setIteratorVar(idx: number, part, value) {
+export function setIteratorVar(idx: number, part: number, value: number) {
 	writeVarWord(idx, part, value);
 }
 
-export function getIteratorVar(idx: number, part) {
+export function getIteratorVar(idx: number, part: number) {
 	return readVarWord(idx, part);
 }
 
 export function findIteratorVar(varIdx: number) {
 	let idx = 0;
-	let count = readWord(0);
+	const count = readWord(0);
 	while (idx < count) {
 		const type = getVarType(idx);
 		const nameIdx = readVarWord(idx, FIELDS.NAME);
@@ -278,7 +283,7 @@ export function dumpVars() {
 
 	let idx = count - 1;
 	while (idx >= 0) {
-		let typeFlags = readVarByte(idx, FIELDS.TYPE);
+		const typeFlags = readVarByte(idx, FIELDS.TYPE);
 		if (!typeFlags) {
 			idx--;
 			continue;
@@ -286,8 +291,8 @@ export function dumpVars() {
 
 		const nameIdx = readVarWord(idx, FIELDS.NAME);
 		let name = getString(nameIdx);
-		let value = readVarWord(idx, FIELDS.VALUE);
-		let level = readVarByte(idx, FIELDS.LEVEL);
+		const value = readVarWord(idx, FIELDS.VALUE);
+		const level = readVarByte(idx, FIELDS.LEVEL);
 
 		let arraySize;
 		const isArray = typeFlags & TYPES.ARRAY;
@@ -299,19 +304,21 @@ export function dumpVars() {
 		const isDeclared = !(typeFlags & TYPES.UNDECLARED);
 		const type = typeFlags & TYPES.SCALAR;
 
+		let valueStr: string = "";
+
 		if (isArray) {
-			value = hexWord(value);
+			valueStr = hexWord(value);
 		} else if (!isFunction) {
 			switch (type) {
 				case TYPES.string: {
-					value = value ? `"${getString(value)}"` : undefined;
+					valueStr = value ? `"${getString(value)}"` : "";
 					break;
 				}
 				case TYPES.iterator: {
 					name = getVarName(nameIdx);
 					const max = readVarWord(idx + 1, FIELDS.NAME);
 					const ptr = readVarWord(idx + 1, FIELDS.VALUE);
-					value = `INC:${hexWord(value)} MAX:${hexWord(max)} PTR:${hexWord(
+					valueStr = `INC:${hexWord(value)} MAX:${hexWord(max)} PTR:${hexWord(
 						ptr,
 					)}`;
 					break;
@@ -322,7 +329,7 @@ export function dumpVars() {
 					for (let idx = 0; idx < 4; idx++) {
 						view.setInt8(idx, readVarByte(idx + 1, FIELDS.NAME + idx));
 					}
-					value = view.getFloat32(0);
+					valueStr = `${view.getFloat32(0)}`;
 					break;
 				}
 			}
@@ -339,7 +346,7 @@ export function dumpVars() {
 				(isFunction ? "()" : ""),
 			"=",
 			isDeclared ? "" : "undefined",
-			value,
+			valueStr,
 		);
 
 		idx--;

@@ -11,6 +11,7 @@ import {
 	HEADER, headers,
 	prgCode,
 	prgLines, SIZE, source, TOKENS,
+	TPrgBuffer,
 	TYPES
 } from "./defs";
 import { disasmPrg, dumpLines } from "./disasm";
@@ -34,9 +35,18 @@ import {
 	setVarType
 } from "./vars";
 
+export type TProgram = {
+	headers?: Uint8Array;
+	lines?: TPrgBuffer;
+	code?: TPrgBuffer;
+	err?: number;
+	src?: string[];
+	lineNum?: number;
+};
+
 let currentLineNum: number;
 
-export function parseSource(src: string, wannaDump: boolean) {
+export function parseSource(src: string, wannaDump: boolean): TProgram {
 	const lines = src.split("\n");
 
 	for (let idx = 0; idx < headers.length; idx++) headers[idx] = 0xff;
@@ -56,7 +66,7 @@ export function parseSource(src: string, wannaDump: boolean) {
 			return {
 				err,
 				lineNum: currentLineNum,
-				lines,
+				src: lines,
 			};
 		}
 	}
@@ -129,7 +139,6 @@ function parseGoto() {
 }
 
 function parseLine() {
-	let lineIdx;
 
 	const tok = lexer();
 	if (tok == null) return;
@@ -140,12 +149,15 @@ function parseLine() {
 	const cmd = tokenizer();
 	if (cmd === -1) return ERRORS.SYNTAX_ERROR;
 
-	lineIdx = addPrgLine(currentLineNum, prgCode.idx);
+	const lineIdx = addPrgLine(currentLineNum, prgCode.idx);
 	writeBufferProgram(SIZE.byte, cmd);
 
 	switch (cmd) {
 		case CMDS.LET: {
 			const varName = lexer();
+			if(varName == null)
+				return ERRORS.SYNTAX_ERROR;
+
 			let tok = tokenizer();
 			const isArray = tok === TOKENS.LEFT_PARENT;
 
@@ -183,6 +195,8 @@ function parseLine() {
 
 		case CMDS.DIM: {
 			const varName = lexer();
+			if(varName == null)
+				return ERRORS.SYNTAX_ERROR;
 
 			let varIdx = findVar(varName);
 			if (varIdx < 0) {
@@ -246,6 +260,9 @@ function parseLine() {
 
 		case CMDS.FOR: {
 			const varName = lexer();
+			if(varName == null)
+				return ERRORS.SYNTAX_ERROR;
+
 			let varIdx = findVar(varName);
 			if (varIdx < 0) {
 				varIdx = declareVar(varName, 0);
@@ -253,7 +270,7 @@ function parseLine() {
 
 			if (getVarType(varIdx) !== TYPES.int) return ERRORS.TYPE_MISMATCH;
 
-			let iteratorIdx = addIteratorVar(varIdx);
+			const iteratorIdx = addIteratorVar(varIdx);
 			writeBufferProgram(SIZE.word, iteratorIdx);
 
 			if (lexer() !== "=") return ERRORS.SYNTAX_ERROR;
@@ -339,7 +356,7 @@ function parseLine() {
 		}
 
 		case CMDS.END: {
-			let cmd = tokenizer(true);
+			const cmd = tokenizer(true);
 			switch (cmd) {
 				case CMDS.FUNCTION: {
 					lexer();
@@ -353,6 +370,9 @@ function parseLine() {
 
 		case CMDS.FUNCTION: {
 			let name = lexer();
+			if(name == null)
+				return ERRORS.SYNTAX_ERROR;
+
 			const varIdx = findVar(name);
 			if (varIdx >= 0) {
 				if (isVarDeclared(varIdx)) return ERRORS.DUPLICATE_NAME;
@@ -375,7 +395,10 @@ function parseLine() {
 						if (tokenizer() !== TOKENS.DOLLAR) return ERRORS.SYNTAX_ERROR;
 
 						name = lexer();
-						let nameIdx = addString(name);
+						if(name == null)
+							return ERRORS.SYNTAX_ERROR;
+
+						const nameIdx = addString(name);
 						writeBufferProgram(SIZE.word, nameIdx);
 						parmCount++;
 
@@ -440,7 +463,7 @@ function parseLine() {
 
 function parseNum(tok?: string) {
 	const intStr = tok !== undefined ? tok : lexer();
-	return parseInt(intStr);
+	return intStr == null ? NaN : parseInt(intStr);
 }
 
 function parseString() {
@@ -502,14 +525,15 @@ function findPrgLine(lineNum: number) {
 function parseVar(tok: string) {
 	let varIdx = findVar(tok);
 	if (varIdx < 0) {
-		varIdx = addVar(tok, context.level);
+		// varIdx = addVar(tok, context.level);
+		varIdx = addVar(tok, 0);
 	}
 	writeBufferProgram(SIZE.word, varIdx);
 	return varIdx;
 }
 
 function parseParms() {
-	let tok = lexer();
+	const tok = lexer();
 
 	if (!tok) return ERRORS.SYNTAX_ERROR;
 

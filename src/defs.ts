@@ -32,7 +32,7 @@ const TYPES = {
 	UNDECLARED: 0x80,
 };
 
-const CMDS = {
+const CMDS: Record<string, number> = {
 	REM: 0x00,
 	DIM: 0x01,
 
@@ -105,7 +105,7 @@ const OPERATORS = {
 	GTE: 0xf6,
 };
 
-const FNS = {
+const FNS: Record<string, number> = {
 	USER_DEF: 0,
 	GET_ITEM: 10,
 	INT: 100,
@@ -136,19 +136,24 @@ const HEADER = {
 	ARRAYS: 10,
 };
 
-const prgCode = {
+export type TPrgBuffer = {
+	buffer: Uint8Array;
+	idx: number;
+};
+
+const prgCode: TPrgBuffer = {
 	buffer: new Uint8Array(255),
 	idx: 0,
 };
 
-const prgLines = {
+const prgLines: TPrgBuffer = {
 	buffer: new Uint8Array(255),
 	idx: 0,
 };
 
 const headers = new Uint8Array(12);
 
-let source = {
+const source = {
 	buffer: "",
 	idx: 0,
 };

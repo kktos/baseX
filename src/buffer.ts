@@ -1,6 +1,6 @@
-import { headers, prgCode, prgLines, SIZE } from "./defs";
+import { headers, prgCode, prgLines, SIZE, TPrgBuffer } from "./defs";
 
-function writeBuffer(p, value: number, size) {
+function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 	switch (size) {
 		case SIZE.byte:
 			p.buffer[p.idx++] = value;
@@ -12,7 +12,7 @@ function writeBuffer(p, value: number, size) {
 	}
 }
 
-function writeBufferProgram(size, value: number) {
+function writeBufferProgram(size: number, value: number) {
 	// console.log("writeBufferProgram", hexWord(prgCode.idx), size, size==1 ? hexByte(value):hexWord(value));
 
 	writeBuffer(prgCode, value, size);
@@ -26,15 +26,15 @@ function writeBufferHeader(idx: number, val: number) {
 	writeBuffer(p, val, SIZE.word);
 }
 
-function writeBufferLine(val: number, idx?: number) {
+function writeBufferLine(val: number, idx: number = -1) {
 	const p = {
 		buffer: prgLines.buffer,
 		idx,
 	};
-	writeBuffer(idx !== undefined ? p : prgLines, val, SIZE.word);
+	writeBuffer(idx !== -1 ? p : prgLines, val, SIZE.word);
 }
 
-function readBuffer(p, size, lookahead = false) {
+function readBuffer(p: TPrgBuffer, size: number, lookahead = false) {
 	switch (size) {
 		case SIZE.byte: {
 			const value = p.buffer[p.idx];
@@ -55,6 +55,8 @@ function readBuffer(p, size, lookahead = false) {
 			if (!lookahead) p.idx += 4;
 			return value;
 		}
+		default:
+			throw new TypeError("Unknown Size");
 	}
 }
 
@@ -74,7 +76,7 @@ function readBufferHeader(idx: number) {
 	return readBuffer(p, SIZE.word);
 }
 
-function readBufferProgram(size, idx: number) {
+function readBufferProgram(size: number, idx: number) {
 	const p = {
 		buffer: prgCode.buffer,
 		idx,

@@ -1,15 +1,18 @@
 import {
-	CMDS, identiferChar0,
+	CMDS,
+	identiferChar0,
 	identiferChars,
 	numberChars,
-	source, TOKENS, ws
+	source,
+	TOKENS,
+	ws,
 } from "./defs";
 
 export let isString = false;
 export let isIdentifer = false;
 export let isNumber = false;
 export let isFloat = false;
-export let lexeme: string|null = null;
+export let lexeme: string | null = null;
 
 export function advance() {
 	// skip whitespaces
@@ -59,7 +62,7 @@ export function lexer(lookahead = false) {
 	while (currIdx < source.buffer.length && ws.includes(source.buffer[currIdx]))
 		currIdx++;
 
-	let idxSOT = currIdx;
+	const idxSOT = currIdx;
 
 	const ch = source.buffer[currIdx++];
 
@@ -118,7 +121,7 @@ export function tokenizer0(lookahead = false) {
 }
 
 export function tokenizer(lookahead = false) {
-	let tok = tokenizer0(lookahead);
+	const tok = tokenizer0(lookahead);
 	// console.log("tokenizer", hexByte(tok));
 	return tok;
 }

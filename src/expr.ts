@@ -4,14 +4,14 @@ import { advance, isIdentifer, lexeme, lexer, tokenizer } from "./lexer";
 import { addString } from "./strings";
 import { addVar, findVar, isVarArray, setVarFunction } from "./vars";
 
-export function parseExpr() {
+export function parseExpr(): number {
 	const err = parseCmp();
 	if (err) return err;
 
 	return 0;
 }
 
-function parseCmp() {
+function parseCmp(): number {
 	const err = parseAdd();
 	if (err) return err;
 
@@ -57,7 +57,7 @@ function parseCmp() {
 	}
 }
 
-function parseAdd() {
+function parseAdd(): number {
 	const err = parseProduct();
 	if (err) return err;
 
@@ -92,7 +92,7 @@ function parseAdd() {
 	}
 }
 
-function parseProduct() {
+function parseProduct(): number {
 	const err = parseTerm();
 	if (err) return err;
 
@@ -125,7 +125,7 @@ function parseProduct() {
 	}
 }
 
-function parseTerm() {
+function parseTerm(): number {
 	const tok = tokenizer(true);
 	if (!lexeme) return ERRORS.SYNTAX_ERROR;
 
@@ -160,7 +160,7 @@ function parseTerm() {
 		}
 
 		case TOKENS.RIGHT_PARENT: {
-			return;
+			return 0;
 		}
 
 		case TOKENS.LEFT_PARENT: {
@@ -176,6 +176,8 @@ function parseTerm() {
 		case TOKENS.DOLLAR: {
 			advance();
 			const varName = lexer();
+			if(varName == null)
+				return ERRORS.SYNTAX_ERROR;
 			const nameIdx = addString(varName);
 			writeBufferProgram(SIZE.byte, TYPES.local);
 			writeBufferProgram(SIZE.word, nameIdx);

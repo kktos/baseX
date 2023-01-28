@@ -5,44 +5,50 @@ import {
 	ERRORS,
 	FNS,
 	HEADER,
-	OPERATORS, prgCode, SIZE,
-	TYPES
+	OPERATORS,
+	prgCode,
+	SIZE,
+	TPrgBuffer,
+	TYPES,
 } from "./defs";
+import { TProgram } from "./parser";
 import {
 	addString,
 	getString,
 	resetTempStrings,
-	setTempStrings
+	setTempStrings,
 } from "./strings";
 import {
 	addVarNameIdx,
 	findVar,
 	getIteratorVar,
 	getVar,
-	getVarType, ITERATOR, removeVarsForLevel,
+	getVarType,
+	ITERATOR,
+	removeVarsForLevel,
 	setIteratorVar,
-	setVar
+	setVar,
 } from "./vars";
 
-type TExpr= {
-	type: number,
-	value: number,
+type TExpr = {
+	type: number;
+	value: number;
 };
-let expr: TExpr= {
+let expr: TExpr = {
 	type: 0,
 	value: 0,
 };
-let program = {
+const program: TPrgBuffer = {
 	buffer: prgCode.buffer,
 	idx: 0,
 };
 
-type TContext= {
-	lineIdx: number,
-	lineNum: number,
-	level: number,
-	returnExpr: string | null
-	exprStack: any[];
+type TContext = TProgram & {
+	lineIdx: number;
+	lineNum?: number;
+	level: number;
+	returnExpr: TExpr | null;
+	exprStack: TExpr[];
 };
 
 let context: TContext;
@@ -54,12 +60,14 @@ let context: TContext;
 	strings: strings,
 	vars: vars,
 */
-export function run(prg) {
-	context = { ...prg };
-	context.lineIdx = readBufferHeader(HEADER.START);
-	context.level = 0;
-	context.returnExpr = null;
-	context.exprStack = [];
+export function run(prg: TProgram) {
+	context = {
+		...prg,
+		lineIdx: readBufferHeader(HEADER.START),
+		level: 0,
+		returnExpr: null,
+		exprStack: [],
+	};
 
 	// setTempStrings(context.lineIdx);
 	setTempStrings();
@@ -111,7 +119,7 @@ function execStatements() {
 					const nameIdx = readBuffer(program, SIZE.word);
 					const varType = readBuffer(program, SIZE.byte);
 					const expr = context.exprStack.pop();
-					if (expr.type !== varType) return ERRORS.TYPE_MISMATCH;
+					if (expr?.type !== varType) return ERRORS.TYPE_MISMATCH;
 					const varIdx = addVarNameIdx(
 						nameIdx,
 						context.level,
@@ -262,9 +270,9 @@ function execStatements() {
 			case CMDS.NEXT: {
 				const iteratorIdx = readBuffer(program, SIZE.word);
 
-				let inc = getIteratorVar(iteratorIdx, ITERATOR.INC);
-				let max = getIteratorVar(iteratorIdx, ITERATOR.MAX);
-				let varIdx = getIteratorVar(iteratorIdx, ITERATOR.VAR);
+				const inc = getIteratorVar(iteratorIdx, ITERATOR.INC);
+				const max = getIteratorVar(iteratorIdx, ITERATOR.MAX);
+				const varIdx = getIteratorVar(iteratorIdx, ITERATOR.VAR);
 
 				const sum = addInt16(inc, getVar(varIdx));
 
@@ -282,13 +290,15 @@ function execStatements() {
 
 		resetTempStrings();
 	}
+
+	return 0;
 }
 
-function addInt16(a, b) {
+function addInt16(a: number, b: number) {
 	return a + b;
 }
 
-function cmpInt16(a, b, op) {
+function cmpInt16(a: number, b: number, op: string) {
 	switch (op) {
 		case "<=":
 			return a <= b;
@@ -300,9 +310,9 @@ function cmpInt16(a, b, op) {
 	return false;
 }
 
-function assignVar(excluded = []) {
+function assignVar(excluded: number[] = []) {
 	const varIdx = readBuffer(program, SIZE.word);
-	let err = evalExpr();
+	const err = evalExpr();
 	if (err) return err;
 
 	// err= evalExpr();
@@ -345,6 +355,8 @@ function assignArrayItem() {
 	const arrayIdx = getVar(varIdx);
 	err = setArrayItem(getVarType(varIdx), arrayIdx, idx, expr.value);
 	if (err) return err;
+
+	return 0;
 }
 
 function evalExpr(): number {
@@ -424,39 +436,50 @@ function evalExpr(): number {
 		context.exprStack.push({ type: expr.type, value: expr.value });
 	}
 
-	expr = context.exprStack.length ? context.exprStack.pop() : expr;
+	if (context.exprStack.length) {
+		const e = context.exprStack.pop();
+		if (e) expr = e;
+	}
 	// console.log("\n---- expr", expr);
 	return 0;
 }
 
-function execFn(fn) {
-	switch (fn) {
+function execFn(fnIdx: number) {
+	switch (fnIdx) {
 		case OPERATORS.ADD: {
 			const op1 = context.exprStack.pop();
 			const op2 = context.exprStack.pop();
+			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
 			context.exprStack.push({ type: op1.type, value: op1.value + op2.value });
 			break;
 		}
 		case OPERATORS.SUB: {
 			const op1 = context.exprStack.pop();
 			const op2 = context.exprStack.pop();
+			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
 			context.exprStack.push({ type: op1.type, value: op2.value - op1.value });
 			break;
 		}
 		case OPERATORS.MULT: {
 			const op1 = context.exprStack.pop();
 			const op2 = context.exprStack.pop();
+			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
 			context.exprStack.push({ type: op1.type, value: op1.value * op2.value });
 			break;
 		}
 		case OPERATORS.GT: {
 			const op1 = context.exprStack.pop();
 			const op2 = context.exprStack.pop();
-			context.exprStack.push({ type: op1.type, value: op2.value > op1.value });
+			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
+			context.exprStack.push({
+				type: op1.type,
+				value: op2.value > op1.value ? 1 : 0,
+			});
 			break;
 		}
 		case FNS.CHR$: {
 			const op1 = context.exprStack.pop();
+			if (!op1) return ERRORS.TYPE_MISMATCH;
 			op1.type = TYPES.string;
 			op1.value = addString(String.fromCharCode(op1.value));
 			context.exprStack.push(op1);
@@ -465,6 +488,8 @@ function execFn(fn) {
 		case FNS.GET_ITEM: {
 			const op1 = context.exprStack.pop();
 			const arr = context.exprStack.pop();
+
+			if (!(op1 && arr)) return ERRORS.TYPE_MISMATCH;
 
 			if (op1.type !== TYPES.int && !(arr.type & TYPES.ARRAY))
 				return ERRORS.TYPE_MISMATCH;
@@ -487,6 +512,8 @@ function execFn(fn) {
 
 			const err = execStatements();
 			if (err) return err;
+
+			if (!context.returnExpr) return ERRORS.TYPE_MISMATCH;
 
 			context.level--;
 			program.idx = prgIdx;

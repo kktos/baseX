@@ -13,8 +13,8 @@ for (let idx = 0; idx < arrayList.length; idx++) arrayList[idx] = 0xff;
 writeWord(arrayList, 0, 0);
 writeWord(arrayData, 0, 2);
 
-export function addArray(varType: number, dim) {
-	let count = readWord(arrayList, 0);
+export function addArray(varType: number, dim: number) {
+	const count = readWord(arrayList, 0);
 	writeWord(arrayList, 0, count + 1);
 
 	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE, dim);
@@ -26,7 +26,7 @@ export function addArray(varType: number, dim) {
 			break;
 		}
 	}
-	let freePtr = readWord(arrayData, 0);
+	const freePtr = readWord(arrayData, 0);
 	writeWord(arrayData, 0, freePtr + dim * itemSize);
 
 	for (let idx = freePtr; idx < freePtr + dim * itemSize; idx++)
@@ -45,7 +45,12 @@ export function getArrayPtr(arrayIdx: number) {
 	return readWord(arrayList, 2 + arrayIdx * ARRAY_RECORD_SIZE + 2);
 }
 
-export function setArrayItem(varType: number, arrayIdx: number, idx: number, value) {
+export function setArrayItem(
+	varType: number,
+	arrayIdx: number,
+	idx: number,
+	value: number,
+) {
 	if (idx >= getArraySize(arrayIdx)) return ERRORS.OVERFLOW;
 
 	let addr = getArrayPtr(arrayIdx);
@@ -77,6 +82,8 @@ export function getArrayItem(varType: number, arrayIdx: number, idx: number) {
 			addr += idx;
 			return readByte(arrayData, addr);
 		}
+		default:
+			throw new TypeError("Unknown var type");
 	}
 }
 
@@ -88,29 +95,29 @@ function readWord(buffer: Uint8Array, idx: number) {
 	return buffer[idx] | (buffer[idx + 1] << 8);
 }
 
-function writeByte(buffer: Uint8Array, idx: number, byte) {
+function writeByte(buffer: Uint8Array, idx: number, byte: number) {
 	buffer[idx] = byte & 0xff;
 }
 
-function writeWord(buffer: Uint8Array, idx: number, word) {
+function writeWord(buffer: Uint8Array, idx: number, word: number) {
 	buffer[idx] = word & 0xff;
 	buffer[idx + 1] = (word >> 8) & 0xff;
 }
 
 export function dumpArray(arrayIdx: number) {
-	let addr = getArrayPtr(arrayIdx);
+	const addr = getArrayPtr(arrayIdx);
 	const size = getArraySize(arrayIdx);
 	console.log("idx", arrayIdx, "size", size);
 	console.log(hexdump(arrayData, addr, size));
 }
 
 export function dumpArrays() {
-	let idx = 0;
-	let count = readWord(arrayList, 0);
+	// let idx = 0;
+	const count = readWord(arrayList, 0);
 	console.log("count:", count);
 	console.log(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
 
-	let freeIdx = readWord(arrayData, 0);
+	const freeIdx = readWord(arrayData, 0);
 	console.log("size:", freeIdx);
 	console.log(hexdump(arrayData, 2, freeIdx, 16));
 

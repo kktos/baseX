@@ -3,7 +3,11 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+	  "nursery": {
+		"recommended": true,
+		"useConst": "error"
+	  }
     },
 	"ignore": [
 		"./node_modules/**/*.*",

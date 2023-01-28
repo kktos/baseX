@@ -1,7 +1,10 @@
 import yargs from "yargs";
+import { dumpArrays } from "./arrays";
 import { ERRORS } from "./defs";
 import { parseSource } from "./parser";
+import { dumpStrings } from "./strings";
 import { EnumToName, hexWord } from "./utils";
+import { dumpVars } from "./vars";
 // import { dumpArrays } from "./arrays.js";
 // import { ERRORS } from "./defs.js";
 // import { list } from "./list.js";
@@ -146,7 +149,7 @@ if (prg.err) {
 		prg.lineNum,
 	);
 	console.log(prg.lines);
-	// 	dump();
+	dump();
 	process.exit();
 }
 
@@ -172,17 +175,17 @@ if (prg.err) {
 // 	list();
 // }
 
-// function dump() {
-// 	console.log("");
-// 	console.log("----------- VARS");
-// 	console.log("");
-// 	dumpVars();
-// 	console.log("");
-// 	console.log("----------- ARRAYS");
-// 	console.log("");
-// 	dumpArrays();
-// 	console.log("");
-// 	console.log("----------- STRINGS");
-// 	console.log("");
-// 	dumpStrings();
-// }
+function dump() {
+	console.log("");
+	console.log("----------- VARS");
+	console.log("");
+	dumpVars();
+	console.log("");
+	console.log("----------- ARRAYS");
+	console.log("");
+	dumpArrays();
+	console.log("");
+	console.log("----------- STRINGS");
+	console.log("");
+	dumpStrings();
+}

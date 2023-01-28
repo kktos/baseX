@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --minify --target=node18",
     "preview": "vite preview",
     "format": "rome format .",
     "format:fix": "rome format --write .",
@@ -14,9 +14,9 @@
   "devDependencies": {
     "@types/node": "^18.11.18",
     "@types/yargs": "^17.0.20",
+    "esbuild": "^0.17.5",
     "rome": "^11.0.0",
-    "typescript": "^4.9.3",
-    "vite": "^4.0.0"
+    "typescript": "^4.9.4"
   },
   "dependencies": {
     "yargs": "^17.6.2"

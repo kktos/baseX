@@ -1,11 +1,5 @@
 import { readBufferHeader } from "./buffer";
-import {
-	CMDS,
-	FNS,
-	HEADER,
-	OPERATORS, prgCode,
-	prgLines, TYPES
-} from "./defs";
+import { CMDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
 import { getString } from "./strings";
 import { EnumToName, hexByte, hexWord } from "./utils";
 import { getVar, getVarName } from "./vars";
@@ -34,7 +28,7 @@ function disasmVar() {
 	switch (varType & TYPES.SCALAR) {
 		case TYPES.string: {
 			const strIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", strings[strIdx]);
+			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", getString(strIdx));
 			break;
 		}
 		case TYPES.var: {
@@ -54,9 +48,9 @@ function disasLine() {
 
 	switch (cmd) {
 		case CMDS.FUNCTION: {
-			let varIdx = readProgramWord();
-			let parmCount = readProgramByte();
-			dumpWord(hexWord(varIdx), `${getVarName(varIdx)}()`);
+			const varIdx = readProgramWord();
+			const parmCount = readProgramByte();
+			dumpWord(varIdx, `${getVarName(varIdx)}()`);
 			dumpByte(parmCount, "parm count");
 			for (let idx = 1; idx <= parmCount; idx++) {
 				const parm = readProgramWord();
@@ -94,7 +88,7 @@ function disasLine() {
 			break;
 		}
 		case CMDS.FOR: {
-			let varIdx = readProgramWord();
+			const varIdx = readProgramWord();
 			console.log(
 				hexWord(addr),
 				":",
@@ -108,7 +102,7 @@ function disasLine() {
 			break;
 		}
 		case CMDS.NEXT: {
-			let varIdx = readProgramWord();
+			const varIdx = readProgramWord();
 			console.log(
 				hexWord(addr),
 				":",

@@ -1,12 +1,6 @@
 import { getArraySize } from "./arrays";
 import { readBufferHeader } from "./buffer";
-import {
-	CMDS,
-	FNS,
-	HEADER,
-	OPERATORS, prgCode,
-	prgLines, TYPES
-} from "./defs";
+import { CMDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
 import { getString } from "./strings";
 import { EnumToName } from "./utils";
 import { getVar, getVarName } from "./vars";
@@ -118,8 +112,8 @@ function printLine(lineNum: number) {
 
 	switch (cmd) {
 		case CMDS.FUNCTION: {
-			let varIdx = readProgramWord();
-			let parmCount = readProgramByte();
+			const varIdx = readProgramWord();
+			const parmCount = readProgramByte();
 			out += `${getVarName(varIdx)}(`;
 			for (let idx = 1; idx <= parmCount; idx++) {
 				const parm = readProgramWord();
@@ -154,11 +148,11 @@ function printLine(lineNum: number) {
 		}
 		case CMDS.IF: {
 			out += printExpr();
-			printLine();
+			printLine(lineNum);
 			break;
 		}
 		case CMDS.FOR: {
-			let varIdx = readProgramWord();
+			const varIdx = readProgramWord();
 			out += `${getVarName(varIdx)}= `;
 			out += printExpr();
 			out += "TO ";
@@ -169,7 +163,7 @@ function printLine(lineNum: number) {
 			break;
 		}
 		case CMDS.NEXT: {
-			let varIdx = readProgramWord();
+			const varIdx = readProgramWord();
 			out += getVarName(varIdx);
 			indentStr = " ";
 			break;
@@ -227,7 +221,8 @@ function printLine(lineNum: number) {
 	return out;
 }
 
-export function list(fromLine = 0, toLine = 0) {
+// export function list(fromLine = 0, toLine = 0) {
+export function list() {
 	lineCursor = readBufferHeader(HEADER.START);
 	while (lineCursor !== 0xffff) {
 		const lineNum = readLineWord();
