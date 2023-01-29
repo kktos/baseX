@@ -91,7 +91,22 @@
 ;
 ; vars
 ;
-0000:
+0000: count: int16
+0002: vars[]
+000X+00: 	type: int8 		; =0=> skip record !=0=> b8: undeclared b7: array b6: function b3-b0: 1:string 2:int 3:float 6:iterator
+000X+01: 	level: int8
+000X+02: 	nameIdx: int16 	; varname= strings[nameIdx]
+000X+04: 	value: int16 	; string=>strIx int=>value float=>floatIdx
+
+; special case: iterator record which extends a var
+000X+00: 	type: int8 		; =6 => iterator
+000X+01: 	level: int8 	; =0
+000X+02: 	varIdx: int16 	; vars[varIdx] var to extend
+000X+04: 	inc: int16 		; iterator increment value
+000X+06: 	type: int8 		; =$00
+000X+07: 	level: int8 	; =$FF
+000X+08: 	max: int16 		; iterator maximum value
+000X+0A: 	ptr: int16 		; pointer
 
 ;
 ; strings
