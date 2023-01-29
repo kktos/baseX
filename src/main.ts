@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { terminal as term } from "terminal-kit";
 import yargs from "yargs";
 import { dumpArrays } from "./arrays";
 import { ERRORS } from "./defs";
@@ -10,16 +11,9 @@ import { dumpStrings } from "./strings";
 import { EnumToName, hexdump, hexWord } from "./utils";
 import { dumpVars } from "./vars";
 import { run } from "./vm";
-// import { dumpArrays } from "./arrays.js";
-// import { ERRORS } from "./defs.js";
-// import { list } from "./list.js";
-// import { parseSource } from "./parser.js";
-// import { dumpStrings } from "./strings.js";
-// import { EnumToName, hexWord } from "./utils.js";
-// import { dumpVars } from "./vars.js";
-// import { run } from "./vm.js";
 
 let cmd: string= "";
+// const term = require( 'terminal-kit' ).terminal ;
 
 const args = yargs(process.argv.splice(2))
 	.scriptName("baseX")
@@ -38,7 +32,6 @@ const args = yargs(process.argv.splice(2))
 	})
 	.demandCommand()
 	.parseSync();
-
 
 function parse(srcFile: string) {
 	const content= readFileSync(srcFile);
@@ -64,9 +57,28 @@ switch(cmd) {
 		const prg= parse(args["filename"] as string);
 		if(!prg)
 			break;
-		const err= run(prg);
+
+		// disasmPrg();
+		// list();
+
+		term().blue();
+		term("*************** START *************\n");
+
+		const callback= (cmd: string, ...parms:string[]) => {
+			switch(cmd) {
+				case "print":
+					term(parms[0]);
+					break;
+			}
+		}
+		const err= run(prg, callback);
+
+		term("**************** END **************\n");
+		term().white();
+
 		if(err)
 			console.error(`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)}`, prg.lineNum );
+
 		dump(prg);
 		break;
 	}

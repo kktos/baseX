@@ -2,7 +2,7 @@ import { writeBufferProgram } from "./buffer";
 import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TYPES } from "./defs";
 import { advance, isIdentifer, lexeme, lexer, tokenizer } from "./lexer";
 import { addString } from "./strings";
-import { addVar, findVar, isVarArray, setVarFunction } from "./vars";
+import { addVar, findVar, isVarArray, isVarDeclared, setVarFunction } from "./vars";
 
 export function parseExpr(): number {
 	const err = parseCmp();
@@ -208,40 +208,45 @@ function parseTerm(): number {
 		varIdx = addVar(lexeme, 0);
 	}
 
-	const isFnCall = tokenizer(true) === TOKENS.LEFT_PARENT;
-	if (isFnCall) {
-		setVarFunction(varIdx);
+	const isArrOrFn = tokenizer(true) === TOKENS.LEFT_PARENT;
 
-		lexer();
-
-		const err = parseExpr();
-		if (err) return err;
-
-		if (lexer() !== ")") return ERRORS.SYNTAX_ERROR;
-
-		writeBufferProgram(SIZE.byte, TYPES.fn);
-		writeBufferProgram(SIZE.byte, FNS.USER_DEF);
+	if(!isArrOrFn) {
+		writeBufferProgram(SIZE.byte, TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
-
 		return 0;
 	}
 
-	writeBufferProgram(SIZE.byte, TYPES.var);
-	writeBufferProgram(SIZE.word, varIdx);
+	// arr(idx)
 
-	if (isVarArray(varIdx)) {
+	if (!isVarDeclared(varIdx) || isVarArray(varIdx)) {
 		lexer();
 
 		const err = parseExpr();
 		if (err) return err;
 
-		if (lexer() !== ")") return ERRORS.SYNTAX_ERROR;
+		if (tokenizer() !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
 
+		writeBufferProgram(SIZE.byte, TYPES.var);
+		writeBufferProgram(SIZE.word, varIdx);
 		writeBufferProgram(SIZE.byte, TYPES.fn);
 		writeBufferProgram(SIZE.byte, FNS.GET_ITEM);
-
-		// writeBufferProgram(SIZE.byte, TYPES.END);
+		return 0;
 	}
+
+	// fn(params, ...)
+
+	setVarFunction(varIdx);
+
+	lexer();
+
+	const err = parseExpr();
+	if (err) return err;
+
+	if (lexer() !== ")") return ERRORS.SYNTAX_ERROR;
+
+	writeBufferProgram(SIZE.byte, TYPES.fn);
+	writeBufferProgram(SIZE.byte, FNS.USER_DEF);
+	writeBufferProgram(SIZE.word, varIdx);
 
 	return 0;
 }

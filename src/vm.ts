@@ -56,7 +56,7 @@ let context: TContext;
 	strings: strings,
 	vars: vars,
 */
-export function run(prg: TProgram) {
+export function run(prg: TProgram, callback: (cmd: string, ...parms:string[])=>void ) {
 	context = {
 		...prg,
 		lineIdx: readBufferHeader(HEADER.START),
@@ -68,12 +68,12 @@ export function run(prg: TProgram) {
 	// setTempStrings(context.lineIdx);
 	setTempStrings();
 
-	const err = execStatements();
+	const err = execStatements(callback);
 	prg.lineNum = context.lineNum;
 	return err;
 }
 
-function execStatements() {
+function execStatements(callback: (cmd: string, ...parms:string[])=>void) {
 	let lineNum;
 	let err;
 
@@ -215,12 +215,12 @@ function execStatements() {
 						}
 					}
 
-					process.stdout.write(outStr);
+					callback("print", outStr);
 
 					sep = readBuffer(program, SIZE.byte);
 					switch (sep) {
 						case 0x09: {
-							process.stdout.write("\t");
+							callback("print", "\t");
 							sep = readBuffer(program, SIZE.byte, true);
 							break;
 						}
@@ -229,7 +229,7 @@ function execStatements() {
 							break;
 						}
 						default: {
-							process.stdout.write("\n");
+							callback("print", "\n");
 							break;
 						}
 					}
@@ -281,6 +281,14 @@ function execStatements() {
 			}
 
 			default:
+				console.error(
+					"UNKNOWN_STATEMENT",
+					cmd,
+					lineNum,
+					program.idx,
+					context.lineIdx,
+					);
+
 				return ERRORS.UNKNOWN_STATEMENT;
 		}
 
@@ -486,8 +494,8 @@ function execFn(fnIdx: number) {
 			break;
 		}
 		case FNS.GET_ITEM: {
-			const op1 = context.exprStack.pop();
 			const arr = context.exprStack.pop();
+			const op1 = context.exprStack.pop();
 
 			if (!(op1 && arr)) return ERRORS.TYPE_MISMATCH;
 

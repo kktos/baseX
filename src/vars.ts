@@ -1,5 +1,5 @@
 import { getArraySize } from "./arrays";
-import { TYPES } from "./defs";
+import { FIELDS, TYPES } from "./defs";
 import { addString, getString } from "./strings";
 import { EnumToName, hexByte, hexdump, hexWord } from "./utils";
 
@@ -10,12 +10,7 @@ import { EnumToName, hexByte, hexdump, hexWord } from "./utils";
 // x: iterator
 const VAR_RECORD_SIZE = 2 + 2 + 2;
 const varsBuffer = new Uint8Array(50 * VAR_RECORD_SIZE + 2);
-const FIELDS = {
-	TYPE: 0,
-	LEVEL: 1,
-	NAME: 2,
-	VALUE: 4,
-};
+
 export const ITERATOR = {
 	VAR: 2,
 	INC: 4,
@@ -51,7 +46,7 @@ function writeVarByte(idx: number, field: number, byte: number) {
 	// console.log(hexdump(varsBuffer, 2, readWord(0)*VAR_RECORD_SIZE+2, 5));
 }
 
-function readVarWord(idx: number, field: number) {
+export function readVarWord(idx: number, field: number) {
 	idx = idx * VAR_RECORD_SIZE + field + 2;
 	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
 }
@@ -195,7 +190,23 @@ export function getVar(idx: number) {
 }
 
 export function getVarName(idx: number) {
+
+	// const result= getString(readVarWord(idx, FIELDS.NAME));
+
+	// const count = readWord(0);
+	// for(let idx=0; idx<count; idx++) {
+	// 	const typeFlags = readVarByte(idx, FIELDS.TYPE);
+	// 	if(!typeFlags)
+	// 		continue;
+	// 	const nameIdx = readVarWord(idx, FIELDS.NAME);
+	// 	const name = getString(nameIdx);
+	// 	const value = readVarWord(idx, FIELDS.VALUE);
+	// 	const level = readVarByte(idx, FIELDS.LEVEL);
+	// 	console.log(`***${idx} T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)} "${typeFlags===6?"iterator":name}"`);
+	// }
+
 	return getString(readVarWord(idx, FIELDS.NAME));
+	// return result;
 }
 
 export function getVarType(idx: number) {

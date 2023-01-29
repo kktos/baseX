@@ -1,9 +1,9 @@
 import { getArraySize } from "./arrays";
 import { readBufferHeader } from "./buffer";
-import { CMDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
 import { getString } from "./strings";
 import { EnumToName } from "./utils";
-import { getVar, getVarName } from "./vars";
+import { getVar, getVarName, readVarWord } from "./vars";
 
 let prgCursor = 0;
 let lineCursor = 0;
@@ -39,7 +39,7 @@ function printVar() {
 }
 
 function printExpr() {
-	let out = "";
+	let out: string[] = [];
 
 	while (true) {
 		const itemType = readProgramByte();
@@ -47,29 +47,52 @@ function printExpr() {
 			case TYPES.fn: {
 				const fn = readProgramByte();
 				let name;
+				let sep= ",";
 				let nameIdx = Object.values(FNS).indexOf(fn);
-				if (nameIdx >= 0) name = `${Object.keys(FNS)[nameIdx]}()`;
+				// if (nameIdx >= 0) name = `${Object.keys(FNS)[nameIdx]}()`;
+				if (nameIdx >= 0)
+					name = `${Object.keys(FNS)[nameIdx]}`;
 				else {
 					nameIdx = Object.values(OPERATORS).indexOf(fn);
 					name = Object.keys(OPERATORS)[nameIdx];
+					const op: Record<string, string>= {
+						MULT: "*",
+						DIV: "/",
+						ADD: "+",
+						SUB: "-",
+						LT: "<",
+						GT: ">",
+						EQ: "=",
+						NE: "!=",
+						LTE: "<=",
+						GTE: ">="
+					};
+					sep= op[name];
+					name= null;
+
 				}
 				if (fn === FNS.USER_DEF) {
 					const varIdx = readProgramWord();
-					name = `${getVarName(varIdx)}()`;
+					// name = `${getVarName(varIdx)}()`;
+					name = `${getVarName(varIdx)}`;
 				}
 
-				out += name;
+				let statement= name ? `${name}(` : "";
+				statement+= out.reverse().join(sep);
+				statement+= name ? ")" : "";
+				out= [statement];
+				// out.push(name);
 
 				break;
 			}
 			case TYPES.string: {
 				const strIdx = readProgramWord();
-				out += `"${getString(strIdx)}"`;
+				out.push(`"${getString(strIdx)}"`);
 				break;
 			}
 			case TYPES.int: {
 				const num = readProgramWord();
-				out += num;
+				out.push(String(num));
 				break;
 			}
 			case TYPES.float: {
@@ -78,28 +101,28 @@ function printExpr() {
 				for (let idx = 0; idx < 4; idx++) {
 					view.setInt8(idx, readProgramByte());
 				}
-				out += view.getFloat32(0);
+				out.push(view.getFloat32(0).toString());
 				break;
 			}
 			case TYPES.var: {
 				const v = readProgramWord();
-				out += getVarName(v);
+				out.push(getVarName(v));
 				break;
 			}
 			case TYPES.local: {
 				const strIdx = readProgramWord();
-				out += `$${getString(strIdx)}`;
+				out.push(`$${getString(strIdx)}`);
 				break;
 			}
 			case TYPES.CLOSE: {
-				out += ")";
+				out.push(")");
 				break;
 			}
 			case TYPES.END: {
-				return out;
+				return out.join(" ");
 			}
 		}
-		out += " ";
+		// out += " ";
 	}
 }
 
@@ -153,18 +176,20 @@ function printLine(lineNum: number) {
 		}
 		case CMDS.FOR: {
 			const varIdx = readProgramWord();
-			out += `${getVarName(varIdx)}= `;
+			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
+			out += `${getVarName(nameIdx)}= `;
 			out += printExpr();
-			out += "TO ";
+			out += " TO ";
 			out += printExpr();
-			out += "STEP ";
+			out += " STEP ";
 			out += printExpr();
 			wannaIndent = true;
 			break;
 		}
 		case CMDS.NEXT: {
 			const varIdx = readProgramWord();
-			out += getVarName(varIdx);
+			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
+			out += getVarName(nameIdx);
 			indentStr = " ";
 			break;
 		}

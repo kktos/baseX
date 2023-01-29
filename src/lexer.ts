@@ -1,11 +1,8 @@
 import {
-	CMDS,
-	identiferChar0,
+	CMDS, identiferChar0,
 	identiferChars,
 	numberChars,
-	source,
-	TOKENS,
-	ws,
+	source, TOKENS, ws
 } from "./defs";
 
 export let isString = false;
@@ -116,6 +113,9 @@ export function tokenizer0(lookahead = false) {
 	if (isNumber) return isFloat ? TOKENS._FLOAT : TOKENS._INT;
 
 	token = token.toUpperCase();
+
+	// console.log("tokenizer0", token, CMDS[token]);
+
 	if (CMDS.hasOwnProperty(token)) return CMDS[token];
 	return -1;
 }

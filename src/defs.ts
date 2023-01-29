@@ -4,6 +4,13 @@ const identiferChars =
 const numberChars = ".0123456789";
 const ws = " \t";
 
+const FIELDS = {
+	TYPE: 0,
+	LEVEL: 1,
+	NAME: 2,
+	VALUE: 4,
+};
+
 const SIZE = {
 	byte: 1,
 	word: 2,
@@ -175,4 +182,5 @@ export {
 	SIZE,
 	TYPES,
 	HEADER,
+	FIELDS
 };

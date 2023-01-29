@@ -1,8 +1,8 @@
 import { readBufferHeader } from "./buffer";
-import { CMDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
 import { getString } from "./strings";
 import { EnumToName, hexByte, hexWord } from "./utils";
-import { getVar, getVarName } from "./vars";
+import { getVar, getVarName, readVarWord } from "./vars";
 
 let prgCursor = 0;
 let lineCursor = 0;
@@ -89,12 +89,13 @@ function disasLine() {
 		}
 		case CMDS.FOR: {
 			const varIdx = readProgramWord();
+			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
 			console.log(
 				hexWord(addr),
 				":",
 				hexWord(varIdx),
-				"  ; iterator",
-				getVarName(varIdx),
+				"     ; iterator",
+				getVarName(nameIdx),
 			);
 			disasmExpr();
 			disasmExpr();
@@ -103,12 +104,13 @@ function disasLine() {
 		}
 		case CMDS.NEXT: {
 			const varIdx = readProgramWord();
+			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
 			console.log(
 				hexWord(addr),
 				":",
 				hexWord(varIdx),
-				"  ; iterator",
-				getVarName(varIdx),
+				"     ; iterator",
+				getVarName(nameIdx),
 			);
 			break;
 		}

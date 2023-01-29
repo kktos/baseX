@@ -209,14 +209,18 @@ function parseLine() {
 			if(varName == null)
 				return ERRORS.SYNTAX_ERROR;
 
+			let iteratorIdx: number;
 			let varIdx = findVar(varName);
 			if (varIdx < 0) {
 				varIdx = declareVar(varName, 0);
+				iteratorIdx = addIteratorVar(varIdx);
+			} else {
+				iteratorIdx= varIdx + 1;
 			}
 
 			if (getVarType(varIdx) !== TYPES.int) return ERRORS.TYPE_MISMATCH;
 
-			const iteratorIdx = addIteratorVar(varIdx);
+			// const iteratorIdx = addIteratorVar(varIdx);
 			writeBufferProgram(SIZE.word, iteratorIdx);
 
 			if (lexer() !== "=") return ERRORS.SYNTAX_ERROR;
