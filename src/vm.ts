@@ -5,29 +5,25 @@ import {
 	ERRORS,
 	FNS,
 	HEADER,
-	OPERATORS,
-	prgCode,
-	SIZE,
+	OPERATORS, prgCode, SIZE,
 	TPrgBuffer,
-	TYPES,
+	TYPES
 } from "./defs";
 import { TProgram } from "./parser";
 import {
 	addString,
 	getString,
 	resetTempStrings,
-	setTempStrings,
+	setTempStrings
 } from "./strings";
 import {
 	addVarNameIdx,
 	findVar,
 	getIteratorVar,
 	getVar,
-	getVarType,
-	ITERATOR,
-	removeVarsForLevel,
+	getVarType, ITERATOR, removeVarsForLevel,
 	setIteratorVar,
-	setVar,
+	setVar
 } from "./vars";
 
 type TExpr = {
@@ -319,7 +315,11 @@ function assignVar(excluded: number[] = []) {
 	// if(err)
 	// 	return err;
 
-	if (excluded.includes(expr.type)) return ERRORS.TYPE_MISMATCH;
+	if (excluded.includes(expr.type))
+		return ERRORS.TYPE_MISMATCH;
+
+	if(getVarType(varIdx) !== expr.type)
+		return ERRORS.TYPE_MISMATCH;
 
 	setVar(varIdx, expr.value);
 

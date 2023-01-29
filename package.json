@@ -3,9 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "test": "node ./dist/basex.js parse --vars --arrays --strings --disasm ./examples/test_let.bas",
     "build": "esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --minify --target=node18",
-    "preview": "vite preview",
     "format": "rome format .",
     "format:fix": "rome format --write .",
     "lint": "rome check .",

@@ -1,4 +1,4 @@
-import { addArray, dumpArrays } from "./arrays";
+import { addArray } from "./arrays";
 import {
 	readBufferHeader,
 	writeBufferHeader,
@@ -14,17 +14,13 @@ import {
 	TPrgBuffer,
 	TYPES
 } from "./defs";
-import { disasmPrg, dumpLines } from "./disasm";
 import { parseExpr } from "./expr";
 import { lexer, tokenizer } from "./lexer";
-import { addString, dumpStrings } from "./strings";
-import { hexdump, hexWord } from "./utils";
+import { addString } from "./strings";
 import {
 	addIteratorVar,
 	addVar,
-	declareVar,
-	dumpVars,
-	findIteratorVar,
+	declareVar, findIteratorVar,
 	findVar,
 	getTypeFromName,
 	getVarType,
@@ -46,7 +42,7 @@ export type TProgram = {
 
 let currentLineNum: number;
 
-export function parseSource(src: string, wannaDump: boolean): TProgram {
+export function parseSource(src: string): TProgram {
 	const lines = src.split("\n");
 
 	for (let idx = 0; idx < headers.length; idx++) headers[idx] = 0xff;
@@ -74,61 +70,11 @@ export function parseSource(src: string, wannaDump: boolean): TProgram {
 	// clear screen
 	// process.stdout.write('\0o33c');
 
-	if (wannaDump) dump(lines);
-
 	return {
 		headers: headers,
 		lines: prgLines,
 		code: prgCode,
 	};
-}
-
-function dump(lines: string[]) {
-	function dumpHeader(name: string, offset: number) {
-		console.log(
-			hexWord(offset),
-			":",
-			hexWord(readBufferHeader(offset)),
-			";",
-			name,
-		);
-	}
-
-	console.log(lines);
-	console.log("");
-	console.log("----------- HEADER");
-	console.log("");
-
-	dumpHeader("version", HEADER.VERSION);
-	dumpHeader("start", HEADER.START);
-	dumpHeader("vars", HEADER.VARS);
-	dumpHeader("strings", HEADER.STRINGS);
-	dumpHeader("lines", HEADER.LINES);
-	dumpHeader("arrays", HEADER.ARRAYS);
-
-	console.log("");
-	console.log("----------- STRINGS");
-	console.log("");
-	dumpStrings();
-
-	console.log("");
-	console.log("----------- VARS");
-	console.log("");
-	dumpVars();
-	console.log("----");
-	dumpArrays();
-
-	console.log("");
-	console.log("----------- CODE");
-	console.log("");
-	console.log(hexdump(prgCode.buffer, 0, prgCode.idx));
-	console.log("");
-
-	console.log("----------- LINES");
-	console.log("");
-	dumpLines();
-
-	disasmPrg();
 }
 
 function parseGoto() {
@@ -398,7 +344,7 @@ function parseLine() {
 						if(name == null)
 							return ERRORS.SYNTAX_ERROR;
 
-						const nameIdx = addString(name);
+						const nameIdx = addString(name, true);
 						writeBufferProgram(SIZE.word, nameIdx);
 						parmCount++;
 

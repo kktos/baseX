@@ -1,5 +1,5 @@
 import { ERRORS, TYPES } from "./defs";
-import { hexdump } from "./utils";
+import { hexdump, hexWord } from "./utils";
 
 const ARRAY_RECORD_SIZE = 2 + 2;
 const arrayList = new Uint8Array(2 + 20 * ARRAY_RECORD_SIZE);
@@ -16,6 +16,8 @@ writeWord(arrayData, 0, 2);
 export function addArray(varType: number, dim: number) {
 	const count = readWord(arrayList, 0);
 	writeWord(arrayList, 0, count + 1);
+
+	// console.log("*** addArray", count, EnumToName(TYPES, varType), dim);
 
 	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE, dim);
 
@@ -112,14 +114,24 @@ export function dumpArray(arrayIdx: number) {
 }
 
 export function dumpArrays() {
-	// let idx = 0;
+	console.log("-- ARRAYS --");
+
 	const count = readWord(arrayList, 0);
-	console.log("count:", count);
-	console.log(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
+	// console.log("count:", count);
+	// console.log(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
+
+	console.log("- LIST");
+	for(let idx= 0; idx<count; idx++) {
+		const arrPtr= getArrayPtr(idx);
+		const arrDim= getArraySize(idx);
+		console.log(hexWord(idx), `$${hexWord(arrPtr)}(${hexWord(arrDim)})`);
+		// console.log(hexdump(arrayData, arrPtr, 4, 16));
+	}
 
 	const freeIdx = readWord(arrayData, 0);
-	console.log("size:", freeIdx);
-	console.log(hexdump(arrayData, 2, freeIdx, 16));
+	// console.log("size:", hexWord(freeIdx));
+	console.log("- DATA");
+	console.log(hexdump(arrayData, 0, freeIdx, 16));
 
 	// while(idx < count) {
 	// 	const nameIdx= readVarWord(idx, FIELDS.NAME);

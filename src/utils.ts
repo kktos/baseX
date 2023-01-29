@@ -1,6 +1,6 @@
 function _fillUp(value: string, count: number, fillWith: string) {
-	var l = count - value.length;
-	var ret = "";
+	let l = count - value.length;
+	let ret = "";
 	while (--l > -1) ret += fillWith;
 	return ret + value;
 }
@@ -19,8 +19,10 @@ export function hexdump(
 	let out = `${_fillUp("Offset", 8, " ")}  ${headers.slice(0, width * 3)}\n`;
 	let row = "";
 	for (let i = 0; i < length; i += width) {
-		row += `${_fillUp(offset.toString(16).toUpperCase(), 8, "0")}  `;
 		const n = Math.min(width, length - offset);
+		if(n===0)
+			continue;
+		row += `${_fillUp(offset.toString(16).toUpperCase(), 8, "0")}  `;
 		let string = "";
 		for (let j = 0; j < width; ++j) {
 			if (j < n) {

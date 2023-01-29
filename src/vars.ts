@@ -103,7 +103,10 @@ export function addVar(
 	isArray = false,
 	isDeclared = false,
 ) {
-	const nameIdx = addString(name);
+	const nameIdx = addString(name, true);
+
+	// console.log("addVar", name, hexWord(nameIdx));
+
 	const varType = getTypeFromName(name);
 
 	return addVarNameIdx(nameIdx, level, varType, isArray, isDeclared);
@@ -276,16 +279,22 @@ export function findIteratorVar(varIdx: number) {
 export function dumpVars() {
 	const count = readWord(0);
 
+	console.log("");
+	console.log("----------- VARS");
+	console.log("");
 	console.log("count:", count);
 	console.log(
 		hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE),
 	);
 
-	let idx = count - 1;
-	while (idx >= 0) {
+	// let idx = count - 1;
+	let idx = 0;
+	// while (idx >= 0) {
+	while (idx < count) {
 		const typeFlags = readVarByte(idx, FIELDS.TYPE);
 		if (!typeFlags) {
-			idx--;
+			// idx--;
+			idx++;
 			continue;
 		}
 
@@ -304,24 +313,27 @@ export function dumpVars() {
 		const isDeclared = !(typeFlags & TYPES.UNDECLARED);
 		const type = typeFlags & TYPES.SCALAR;
 
-		let valueStr: string = "";
+		const getValueString= () => {
+			if (isArray)
+				return hexWord(value);
 
-		if (isArray) {
-			valueStr = hexWord(value);
-		} else if (!isFunction) {
+			if (isFunction)
+				return "";
+
 			switch (type) {
 				case TYPES.string: {
-					valueStr = value ? `"${getString(value)}"` : "";
-					break;
+					return value!==0xFFFF ? `"${getString(value)}"` : "??";
+				}
+				case TYPES.int: {
+					return value;
 				}
 				case TYPES.iterator: {
 					name = getVarName(nameIdx);
 					const max = readVarWord(idx + 1, FIELDS.NAME);
 					const ptr = readVarWord(idx + 1, FIELDS.VALUE);
-					valueStr = `INC:${hexWord(value)} MAX:${hexWord(max)} PTR:${hexWord(
+					return `INC:${hexWord(value)} MAX:${hexWord(max)} PTR:${hexWord(
 						ptr,
 					)}`;
-					break;
 				}
 				case TYPES.float: {
 					const buffer = new Uint8Array(4);
@@ -329,26 +341,31 @@ export function dumpVars() {
 					for (let idx = 0; idx < 4; idx++) {
 						view.setInt8(idx, readVarByte(idx + 1, FIELDS.NAME + idx));
 					}
-					valueStr = `${view.getFloat32(0)}`;
-					break;
+					return `${view.getFloat32(0)}`;
 				}
+				default:
+					return "";
 			}
 		}
 
+		const valueStr = getValueString();
+
 		console.log(
 			String(idx).padStart(2, "0"),
+			`T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)}`,
 			(level > 0 ? "L" : "G") + hexByte(level),
-			name,
+			name.padEnd(20," "),
 			":",
-			hexByte(typeFlags),
 			EnumToName(TYPES, type) +
 				(isArray ? `[${arraySize}]` : "") +
 				(isFunction ? "()" : ""),
 			"=",
-			isDeclared ? "" : "undefined",
+			isDeclared ? "" : "undeclared!",
 			valueStr,
 		);
 
-		idx--;
+		// idx--;
+		idx++;
 	}
+	console.log("");
 }

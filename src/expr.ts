@@ -178,7 +178,7 @@ function parseTerm(): number {
 			const varName = lexer();
 			if(varName == null)
 				return ERRORS.SYNTAX_ERROR;
-			const nameIdx = addString(varName);
+			const nameIdx = addString(varName, true);
 			writeBufferProgram(SIZE.byte, TYPES.local);
 			writeBufferProgram(SIZE.word, nameIdx);
 			return 0;
