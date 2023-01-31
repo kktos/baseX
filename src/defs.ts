@@ -49,6 +49,8 @@ const CMDS: Record<string, number> = {
 	AS: 0x08,
 
 	INPUT: 0x10,
+	READ: 0x11,
+	DATA: 0x12,
 
 	BYTE: 0x20,
 	WORD: 0x21,
@@ -182,5 +184,5 @@ export {
 	SIZE,
 	TYPES,
 	HEADER,
-	FIELDS
+	FIELDS,
 };

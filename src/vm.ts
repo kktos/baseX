@@ -5,25 +5,30 @@ import {
 	ERRORS,
 	FNS,
 	HEADER,
-	OPERATORS, prgCode, SIZE,
+	OPERATORS,
+	prgCode,
+	SIZE,
 	TPrgBuffer,
-	TYPES
+	TYPES,
 } from "./defs";
 import { TProgram } from "./parser";
 import {
 	addString,
 	getString,
 	resetTempStrings,
-	setTempStrings
+	setTempStrings,
 } from "./strings";
 import {
 	addVarNameIdx,
 	findVar,
 	getIteratorVar,
 	getVar,
-	getVarType, ITERATOR, removeVarsForLevel,
+	getVarType,
+	isVarDeclared,
+	ITERATOR,
+	removeVarsForLevel,
 	setIteratorVar,
-	setVar
+	setVar,
 } from "./vars";
 
 type TExpr = {
@@ -56,7 +61,7 @@ let context: TContext;
 	strings: strings,
 	vars: vars,
 */
-export function run(prg: TProgram, callback: (cmd: string, ...parms:string[])=>void ) {
+export function run(prg: TProgram) {
 	context = {
 		...prg,
 		lineIdx: readBufferHeader(HEADER.START),
@@ -68,12 +73,12 @@ export function run(prg: TProgram, callback: (cmd: string, ...parms:string[])=>v
 	// setTempStrings(context.lineIdx);
 	setTempStrings();
 
-	const err = execStatements(callback);
+	const err = execStatements();
 	prg.lineNum = context.lineNum;
 	return err;
 }
 
-function execStatements(callback: (cmd: string, ...parms:string[])=>void) {
+function execStatements() {
 	let lineNum;
 	let err;
 
@@ -215,12 +220,12 @@ function execStatements(callback: (cmd: string, ...parms:string[])=>void) {
 						}
 					}
 
-					callback("print", outStr);
+					term(outStr);
 
 					sep = readBuffer(program, SIZE.byte);
 					switch (sep) {
 						case 0x09: {
-							callback("print", "\t");
+							term("\t");
 							sep = readBuffer(program, SIZE.byte, true);
 							break;
 						}
@@ -229,7 +234,7 @@ function execStatements(callback: (cmd: string, ...parms:string[])=>void) {
 							break;
 						}
 						default: {
-							callback("print", "\n");
+							term("\n");
 							break;
 						}
 					}
@@ -287,7 +292,7 @@ function execStatements(callback: (cmd: string, ...parms:string[])=>void) {
 					lineNum,
 					program.idx,
 					context.lineIdx,
-					);
+				);
 
 				return ERRORS.UNKNOWN_STATEMENT;
 		}
@@ -323,11 +328,9 @@ function assignVar(excluded: number[] = []) {
 	// if(err)
 	// 	return err;
 
-	if (excluded.includes(expr.type))
-		return ERRORS.TYPE_MISMATCH;
+	if (excluded.includes(expr.type)) return ERRORS.TYPE_MISMATCH;
 
-	if(getVarType(varIdx) !== expr.type)
-		return ERRORS.TYPE_MISMATCH;
+	if (getVarType(varIdx) !== expr.type) return ERRORS.TYPE_MISMATCH;
 
 	setVar(varIdx, expr.value);
 
@@ -350,6 +353,9 @@ function assignVar(excluded: number[] = []) {
 
 function assignArrayItem() {
 	const varIdx = readBuffer(program, SIZE.word);
+
+	if (!isVarDeclared(varIdx)) return ERRORS.UNDECLARED_VARIABLE;
+
 	let err = evalExpr();
 	if (err) return err;
 

@@ -1,7 +1,7 @@
 import { getArraySize } from "./arrays";
 import { FIELDS, TYPES } from "./defs";
 import { addString, getString } from "./strings";
-import { EnumToName, hexByte, hexdump, hexWord } from "./utils";
+import { EnumToName, hexByte, hexdump, hexLong, hexWord } from "./utils";
 
 // 2: namedIdx
 // 2: type
@@ -94,7 +94,7 @@ export function addVarNameIdx(
 
 export function addVar(
 	name: string,
-	level: number,
+	level: number= 0,
 	isArray = false,
 	isDeclared = false,
 ) {
@@ -190,7 +190,6 @@ export function getVar(idx: number) {
 }
 
 export function getVarName(idx: number) {
-
 	// const result= getString(readVarWord(idx, FIELDS.NAME));
 
 	// const count = readWord(0);
@@ -290,29 +289,32 @@ export function findIteratorVar(varIdx: number) {
 export function dumpVars() {
 	const count = readWord(0);
 
-	console.log("");
-	console.log("----------- VARS");
-	console.log("");
-	console.log("count:", count);
-	console.log(
-		hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE),
-	);
+	term.green("\n----------- VARS\n");
+	term(`count: ${count}\n`);
+	term(hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE));
 
 	// let idx = count - 1;
 	let idx = 0;
 	// while (idx >= 0) {
 	while (idx < count) {
 		const typeFlags = readVarByte(idx, FIELDS.TYPE);
+		const level = readVarByte(idx, FIELDS.LEVEL);
+		const nameIdx = readVarWord(idx, FIELDS.NAME);
+		const value = readVarWord(idx, FIELDS.VALUE);
+
 		if (!typeFlags) {
 			// idx--;
+			console.log(
+				String(idx).padStart(2, "0"),
+				`T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(
+					nameIdx,
+				)} V:${hexWord(value)}`,
+			);
 			idx++;
 			continue;
 		}
 
-		const nameIdx = readVarWord(idx, FIELDS.NAME);
 		let name = getString(nameIdx);
-		const value = readVarWord(idx, FIELDS.VALUE);
-		const level = readVarByte(idx, FIELDS.LEVEL);
 
 		let arraySize;
 		const isArray = typeFlags & TYPES.ARRAY;
@@ -324,16 +326,14 @@ export function dumpVars() {
 		const isDeclared = !(typeFlags & TYPES.UNDECLARED);
 		const type = typeFlags & TYPES.SCALAR;
 
-		const getValueString= () => {
-			if (isArray)
-				return hexWord(value);
+		const getValueString = () => {
+			if (isArray) return hexWord(value);
 
-			if (isFunction)
-				return "";
+			if (isFunction) return "";
 
 			switch (type) {
 				case TYPES.string: {
-					return value!==0xFFFF ? `"${getString(value)}"` : "??";
+					return value !== 0xffff ? `"${getString(value)}"` : "??";
 				}
 				case TYPES.int: {
 					return value;
@@ -349,23 +349,25 @@ export function dumpVars() {
 				case TYPES.float: {
 					const buffer = new Uint8Array(4);
 					const view = new DataView(buffer.buffer);
-					for (let idx = 0; idx < 4; idx++) {
-						view.setInt8(idx, readVarByte(idx + 1, FIELDS.NAME + idx));
+					for (let offset = 0; offset < 4; offset++) {
+						view.setInt8(offset, readVarByte(idx + 1, FIELDS.NAME + offset));
 					}
-					return `${view.getFloat32(0)}`;
+					return `${view.getFloat32(0)} - $${hexLong(view.getUint32(0))}`;
 				}
 				default:
 					return "";
 			}
-		}
+		};
 
 		const valueStr = getValueString();
 
 		console.log(
 			String(idx).padStart(2, "0"),
-			`T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)}`,
+			`T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(
+				nameIdx,
+			)} V:${hexWord(value)}`,
 			(level > 0 ? "L" : "G") + hexByte(level),
-			name.padEnd(20," "),
+			name.padEnd(20, " "),
 			":",
 			EnumToName(TYPES, type) +
 				(isArray ? `[${arraySize}]` : "") +

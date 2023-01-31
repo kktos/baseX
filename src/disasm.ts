@@ -1,7 +1,14 @@
 import { readBufferHeader } from "./buffer";
-import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import {
+	CMDS,
+	FIELDS,
+	FNS,
+	HEADER,
+	OPERATORS, prgCode,
+	prgLines, TYPES
+} from "./defs";
 import { getString } from "./strings";
-import { EnumToName, hexByte, hexWord } from "./utils";
+import { EnumToName, hexByte, hexLong, hexWord } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
 
 let prgCursor = 0;
@@ -13,9 +20,9 @@ function readProgramByte(lookahead = false) {
 	return prgCode.buffer[lookahead ? prgCursor : prgCursor++];
 }
 
-function readProgramWord() {
+function readProgramWord(lookahead = false) {
 	addr = prgCursor;
-	return prgCode.buffer[prgCursor++] | (prgCode.buffer[prgCursor++] << 8);
+	return prgCode.buffer[lookahead ? prgCursor : prgCursor++] | (prgCode.buffer[lookahead ? prgCursor+1 : prgCursor++] << 8);
 }
 
 function readLineWord() {
@@ -28,7 +35,13 @@ function disasmVar() {
 	switch (varType & TYPES.SCALAR) {
 		case TYPES.string: {
 			const strIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", getString(strIdx));
+			console.log(
+				hexWord(addr),
+				":",
+				hexWord(strIdx),
+				"  ;",
+				getString(strIdx),
+			);
 			break;
 		}
 		case TYPES.var: {
@@ -134,6 +147,32 @@ function disasLine() {
 			}
 			break;
 		}
+		case CMDS.READ: {
+			let varIdx= readProgramWord();
+			while (true) {
+				console.log(
+					`${hexWord(addr)} : ${hexWord(varIdx)}      ;${getVarName(varIdx)}`
+				);
+				varIdx= readProgramWord();
+				if(varIdx === 0xFFFF) {
+					dumpWord(0xFFFF, "END OF READ");
+					break;
+				}
+			}
+			break;
+		}
+		case CMDS.DATA: {
+			let sep;
+			while (sep !== TYPES.END) {
+				disasmExpr();
+				sep = readProgramByte(true);
+				if(sep === TYPES.END) {
+					readProgramByte();
+					dumpByte(sep, "END OF DATA");
+				}
+			}
+			break;
+		}
 		case CMDS.LET: {
 			const varIdx = readProgramWord();
 			console.log(
@@ -189,7 +228,7 @@ function disasLine() {
 }
 
 function dumpByte(b1: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexByte(b1), cmt ? `       ;${cmt}` : "");
+	console.log(hexWord(addr), ":", hexByte(b1), cmt ? `       ; ${cmt}` : "");
 }
 
 function dump2Bytes(b1: number, b2: number, cmt: string) {
@@ -203,16 +242,11 @@ function dump2Bytes(b1: number, b2: number, cmt: string) {
 }
 
 function dumpWord(word: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexWord(word), cmt ? `     ;${cmt}` : "");
+	console.log(hexWord(addr), ":", hexWord(word), cmt ? `     ; ${cmt}` : "");
 }
 
 function dumpLong(long: number, cmt: string) {
-	console.log(
-		hexWord(addr),
-		":",
-		hexWord(long >> 16) + hexWord(long & 0xffff),
-		cmt ? ` ;${cmt}` : "",
-	);
+	console.log(hexWord(addr), ":", hexLong(long), cmt ? ` ; ${cmt}` : "");
 }
 
 function dumpByteWord(byte: number, word: number, cmt: string) {
@@ -221,7 +255,7 @@ function dumpByteWord(byte: number, word: number, cmt: string) {
 		":",
 		hexByte(byte),
 		hexWord(word),
-		cmt ? `  ;${cmt}` : "",
+		cmt ? `  ; ${cmt}` : "",
 	);
 }
 
@@ -329,10 +363,10 @@ export function dumpLines() {
 			hexWord(lineCursor),
 			":",
 			"lineNum=",
-			readLineWord(),
+			readLineWord().toString().padStart(4, "0"),
 			"codePtr=",
 			hexWord(readLineWord()),
-			"nextPtr=",
+			"nextLinePtr=",
 			hexWord(readLineWord()),
 		);
 	}

@@ -121,9 +121,9 @@ export function dumpArrays() {
 	// console.log(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
 
 	console.log("- LIST");
-	for(let idx= 0; idx<count; idx++) {
-		const arrPtr= getArrayPtr(idx);
-		const arrDim= getArraySize(idx);
+	for (let idx = 0; idx < count; idx++) {
+		const arrPtr = getArrayPtr(idx);
+		const arrDim = getArraySize(idx);
 		console.log(hexWord(idx), `$${hexWord(arrPtr)}(${hexWord(arrDim)})`);
 		// console.log(hexdump(arrayData, arrPtr, 4, 16));
 	}

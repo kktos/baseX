@@ -20,8 +20,7 @@ export function hexdump(
 	let row = "";
 	for (let i = 0; i < length; i += width) {
 		const n = Math.min(width, length - offset);
-		if(n===0)
-			continue;
+		if (n === 0) continue;
 		row += `${_fillUp(offset.toString(16).toUpperCase(), 8, "0")}  `;
 		let string = "";
 		for (let j = 0; j < width; ++j) {
@@ -49,6 +48,12 @@ export function hexByte(val: number) {
 
 export function hexWord(val: number) {
 	return val.toString(16).padStart(4, "0").toUpperCase();
+}
+
+export function hexLong(val: number) {
+	// hexWord(long >> 16) + hexWord(long & 0xffff),
+
+	return val.toString(16).padStart(8, "0").toUpperCase();
 }
 
 export function EnumToName(en: Object, value: number) {

@@ -2,7 +2,13 @@ import { writeBufferProgram } from "./buffer";
 import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TYPES } from "./defs";
 import { advance, isIdentifer, lexeme, lexer, tokenizer } from "./lexer";
 import { addString } from "./strings";
-import { addVar, findVar, isVarArray, isVarDeclared, setVarFunction } from "./vars";
+import {
+	addVar,
+	findVar,
+	isVarArray,
+	isVarDeclared,
+	setVarFunction,
+} from "./vars";
 
 export function parseExpr(): number {
 	const err = parseCmp();
@@ -176,8 +182,7 @@ function parseTerm(): number {
 		case TOKENS.DOLLAR: {
 			advance();
 			const varName = lexer();
-			if(varName == null)
-				return ERRORS.SYNTAX_ERROR;
+			if (varName == null) return ERRORS.SYNTAX_ERROR;
 			const nameIdx = addString(varName, true);
 			writeBufferProgram(SIZE.byte, TYPES.local);
 			writeBufferProgram(SIZE.word, nameIdx);
@@ -210,7 +215,7 @@ function parseTerm(): number {
 
 	const isArrOrFn = tokenizer(true) === TOKENS.LEFT_PARENT;
 
-	if(!isArrOrFn) {
+	if (!isArrOrFn) {
 		writeBufferProgram(SIZE.byte, TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
 		return 0;

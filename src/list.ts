@@ -1,6 +1,15 @@
 import { getArraySize } from "./arrays";
 import { readBufferHeader } from "./buffer";
-import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import {
+	CMDS,
+	FIELDS,
+	FNS,
+	HEADER,
+	OPERATORS,
+	prgCode,
+	prgLines,
+	TYPES,
+} from "./defs";
 import { getString } from "./strings";
 import { EnumToName } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
@@ -47,15 +56,14 @@ function printExpr() {
 			case TYPES.fn: {
 				const fn = readProgramByte();
 				let name;
-				let sep= ",";
+				let sep = ",";
 				let nameIdx = Object.values(FNS).indexOf(fn);
 				// if (nameIdx >= 0) name = `${Object.keys(FNS)[nameIdx]}()`;
-				if (nameIdx >= 0)
-					name = `${Object.keys(FNS)[nameIdx]}`;
+				if (nameIdx >= 0) name = `${Object.keys(FNS)[nameIdx]}`;
 				else {
 					nameIdx = Object.values(OPERATORS).indexOf(fn);
 					name = Object.keys(OPERATORS)[nameIdx];
-					const op: Record<string, string>= {
+					const op: Record<string, string> = {
 						MULT: "*",
 						DIV: "/",
 						ADD: "+",
@@ -65,11 +73,10 @@ function printExpr() {
 						EQ: "=",
 						NE: "!=",
 						LTE: "<=",
-						GTE: ">="
+						GTE: ">=",
 					};
-					sep= op[name];
-					name= null;
-
+					sep = op[name];
+					name = null;
 				}
 				if (fn === FNS.USER_DEF) {
 					const varIdx = readProgramWord();
@@ -77,10 +84,10 @@ function printExpr() {
 					name = `${getVarName(varIdx)}`;
 				}
 
-				let statement= name ? `${name}(` : "";
-				statement+= out.reverse().join(sep);
-				statement+= name ? ")" : "";
-				out= [statement];
+				let statement = name ? `${name}(` : "";
+				statement += out.reverse().join(sep);
+				statement += name ? ")" : "";
+				out = [statement];
 				// out.push(name);
 
 				break;

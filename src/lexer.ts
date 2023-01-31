@@ -1,8 +1,11 @@
 import {
-	CMDS, identiferChar0,
+	CMDS,
+	identiferChar0,
 	identiferChars,
 	numberChars,
-	source, TOKENS, ws
+	source,
+	TOKENS,
+	ws,
 } from "./defs";
 
 export let isString = false;
