@@ -1,15 +1,6 @@
 import { getArraySize } from "./arrays";
 import { readBufferHeader } from "./buffer";
-import {
-	CMDS,
-	FIELDS,
-	FNS,
-	HEADER,
-	OPERATORS,
-	prgCode,
-	prgLines,
-	TYPES,
-} from "./defs";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
 import { getString } from "./strings";
 import { EnumToName } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
@@ -171,8 +162,7 @@ function printLine(lineNum: number) {
 
 		case CMDS.GOTO: {
 			const lineIdx = readProgramWord();
-			const line =
-				prgLines.buffer[lineIdx] | (prgLines.buffer[lineIdx + 1] << 8);
+			const line = prgLines.buffer[lineIdx] | (prgLines.buffer[lineIdx + 1] << 8);
 			out += line;
 			break;
 		}

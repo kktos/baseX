@@ -15,12 +15,7 @@ export function addString(str: string, isVarName = false) {
 	setArrayItem(TYPES.int, stringArray, 0, strCount);
 
 	const strIdx = addArray(TYPES.byte, str.length);
-	setArrayItem(
-		TYPES.int,
-		stringArray,
-		strCount,
-		strIdx | (isVarName ? 0x8000 : 0x0000),
-	);
+	setArrayItem(TYPES.int, stringArray, strCount, strIdx | (isVarName ? 0x8000 : 0x0000));
 
 	for (let idx = 0; idx < str.length; idx++) {
 		setArrayItem(TYPES.byte, strIdx, idx, str.charCodeAt(idx));
@@ -60,11 +55,7 @@ export function dumpStrings() {
 
 	for (let idx = 0; idx < strCount; idx++) {
 		const strIdx = getArrayItem(TYPES.int, stringArray, idx + 1);
-		console.log(
-			`${String(idx).padStart(4, "0")} array:${hexWord(strIdx)} ${
-				strIdx & 0x8000 ? "v" : " "
-			} "${getString(idx + 1)}"`,
-		);
+		console.log(`${String(idx).padStart(4, "0")} array:${hexWord(strIdx)} ${strIdx & 0x8000 ? "v" : " "} "${getString(idx + 1)}"`);
 	}
 	console.log("");
 }

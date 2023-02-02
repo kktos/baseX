@@ -15,6 +15,7 @@
 	]
   },
   "formatter": {
+	"lineWidth": 180,
 	"ignore": [
 		"./node_modules/**/*.*",
 		"./dist/**/*.*"

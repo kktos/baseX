@@ -1,35 +1,9 @@
 import { getArrayItem, setArrayItem } from "./arrays";
 import { readBuffer, readBufferHeader, readBufferLine } from "./buffer";
-import {
-	CMDS,
-	ERRORS,
-	FNS,
-	HEADER,
-	OPERATORS,
-	prgCode,
-	SIZE,
-	TPrgBuffer,
-	TYPES,
-} from "./defs";
+import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES } from "./defs";
 import { TProgram } from "./parser";
-import {
-	addString,
-	getString,
-	resetTempStrings,
-	setTempStrings,
-} from "./strings";
-import {
-	addVarNameIdx,
-	findVar,
-	getIteratorVar,
-	getVar,
-	getVarType,
-	isVarDeclared,
-	ITERATOR,
-	removeVarsForLevel,
-	setIteratorVar,
-	setVar,
-} from "./vars";
+import { addString, getString, resetTempStrings, setTempStrings } from "./strings";
+import { addVarNameIdx, findVar, getIteratorVar, getVar, getVarType, isVarDeclared, ITERATOR, removeVarsForLevel, setIteratorVar, setVar } from "./vars";
 
 type TExpr = {
 	type: number;
@@ -121,13 +95,7 @@ function execStatements() {
 					const varType = readBuffer(program, SIZE.byte);
 					const expr = context.exprStack.pop();
 					if (expr?.type !== varType) return ERRORS.TYPE_MISMATCH;
-					const varIdx = addVarNameIdx(
-						nameIdx,
-						context.level,
-						varType,
-						false,
-						true,
-					);
+					const varIdx = addVarNameIdx(nameIdx, context.level, varType, false, true);
 					setVar(varIdx, expr.value);
 				}
 
@@ -286,13 +254,7 @@ function execStatements() {
 			}
 
 			default:
-				console.error(
-					"UNKNOWN_STATEMENT",
-					cmd,
-					lineNum,
-					program.idx,
-					context.lineIdx,
-				);
+				console.error("UNKNOWN_STATEMENT", cmd, lineNum, program.idx, context.lineIdx);
 
 				return ERRORS.UNKNOWN_STATEMENT;
 		}
@@ -505,8 +467,7 @@ function execFn(fnIdx: number) {
 
 			if (!(op1 && arr)) return ERRORS.TYPE_MISMATCH;
 
-			if (op1.type !== TYPES.int && !(arr.type & TYPES.ARRAY))
-				return ERRORS.TYPE_MISMATCH;
+			if (op1.type !== TYPES.int && !(arr.type & TYPES.ARRAY)) return ERRORS.TYPE_MISMATCH;
 
 			arr.type = arr.type & 0x3f;
 			arr.value = getArrayItem(arr.type, arr.value, op1.value);

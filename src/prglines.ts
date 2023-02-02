@@ -1,7 +1,7 @@
 import { readBufferHeader, writeBufferHeader, writeBufferLine } from "./buffer";
 import { HEADER, prgLines } from "./defs";
 
-export  function addPrgLine(lineNum: number, offset: number) {
+export function addPrgLine(lineNum: number, offset: number) {
 	let lineIdx = findPrgLine(lineNum);
 	if (lineIdx >= 0) {
 		prgLines.buffer[lineIdx + 2] = offset & 0xff;
@@ -30,8 +30,7 @@ export  function addPrgLine(lineNum: number, offset: number) {
 		writeBufferHeader(HEADER.START, currLineIdx);
 		// console.log("addPrgLine start", hexWord(nextLineIdx));
 	} else {
-		nextLineIdx =
-			prgLines.buffer[minIdx + 4] | (prgLines.buffer[minIdx + 5] << 8);
+		nextLineIdx = prgLines.buffer[minIdx + 4] | (prgLines.buffer[minIdx + 5] << 8);
 		writeBufferLine(currLineIdx, minIdx + 4);
 		// console.log("addPrgLine prev", min, hexWord(minIdx));
 	}

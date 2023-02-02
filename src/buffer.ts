@@ -1,4 +1,5 @@
 import { headers, prgCode, prgLines, SIZE, TPrgBuffer } from "./defs";
+import { hexByte, hexWord } from "./utils";
 
 function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 	switch (size) {
@@ -12,13 +13,14 @@ function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 	}
 }
 
-function writeBufferProgram(size: number, value: number) {
-	// console.log("writeBufferProgram", hexWord(prgCode.idx), size, size==1 ? hexByte(value):hexWord(value));
+export function writeBufferProgram(size: number, value: number) {
+
+	console.log("writeBufferProgram", hexWord(prgCode.idx), size, size===1 ? hexByte(value):hexWord(value));
 
 	writeBuffer(prgCode, value, size);
 }
 
-function writeBufferHeader(idx: number, val: number) {
+export function writeBufferHeader(idx: number, val: number) {
 	const p = {
 		buffer: headers,
 		idx,
@@ -26,7 +28,7 @@ function writeBufferHeader(idx: number, val: number) {
 	writeBuffer(p, val, SIZE.word);
 }
 
-function writeBufferLine(val: number, idx: number = -1) {
+export function writeBufferLine(val: number, idx: number = -1) {
 	const p = {
 		buffer: prgLines.buffer,
 		idx,
@@ -34,7 +36,7 @@ function writeBufferLine(val: number, idx: number = -1) {
 	writeBuffer(idx !== -1 ? p : prgLines, val, SIZE.word);
 }
 
-function readBuffer(p: TPrgBuffer, size: number, lookahead = false) {
+export function readBuffer(p: TPrgBuffer, size: number, lookahead = false) {
 	switch (size) {
 		case SIZE.byte: {
 			const value = p.buffer[p.idx];
@@ -47,11 +49,7 @@ function readBuffer(p: TPrgBuffer, size: number, lookahead = false) {
 			return value;
 		}
 		case SIZE.long: {
-			const value =
-				(p.buffer[p.idx] & 0xff) |
-				(p.buffer[p.idx + 1] << 8) |
-				(p.buffer[p.idx + 1] << 16) |
-				(p.buffer[p.idx + 1] << 24);
+			const value = (p.buffer[p.idx] & 0xff) | (p.buffer[p.idx + 1] << 8) | (p.buffer[p.idx + 1] << 16) | (p.buffer[p.idx + 1] << 24);
 			if (!lookahead) p.idx += 4;
 			return value;
 		}
@@ -60,7 +58,7 @@ function readBuffer(p: TPrgBuffer, size: number, lookahead = false) {
 	}
 }
 
-function readBufferLine(idx: number) {
+export function readBufferLine(idx: number) {
 	const p = {
 		buffer: prgLines.buffer,
 		idx,
@@ -68,7 +66,7 @@ function readBufferLine(idx: number) {
 	return readBuffer(idx !== undefined ? p : prgLines, SIZE.word);
 }
 
-function readBufferHeader(idx: number) {
+export function readBufferHeader(idx: number) {
 	const p = {
 		buffer: headers,
 		idx,
@@ -76,20 +74,10 @@ function readBufferHeader(idx: number) {
 	return readBuffer(p, SIZE.word);
 }
 
-function readBufferProgram(size: number, idx: number) {
+export function readBufferProgram(size: number, idx: number) {
 	const p = {
 		buffer: prgCode.buffer,
 		idx,
 	};
 	return readBuffer(idx !== undefined ? p : prgCode, size);
 }
-
-export {
-	writeBufferLine,
-	writeBufferHeader,
-	writeBufferProgram,
-	readBufferLine,
-	readBufferHeader,
-	readBufferProgram,
-	readBuffer,
-};

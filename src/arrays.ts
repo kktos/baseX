@@ -31,8 +31,7 @@ export function addArray(varType: number, dim: number) {
 	const freePtr = readWord(arrayData, 0);
 	writeWord(arrayData, 0, freePtr + dim * itemSize);
 
-	for (let idx = freePtr; idx < freePtr + dim * itemSize; idx++)
-		arrayData[idx] = 0xff;
+	for (let idx = freePtr; idx < freePtr + dim * itemSize; idx++) arrayData[idx] = 0xff;
 
 	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE + 2, freePtr);
 
@@ -47,12 +46,7 @@ export function getArrayPtr(arrayIdx: number) {
 	return readWord(arrayList, 2 + arrayIdx * ARRAY_RECORD_SIZE + 2);
 }
 
-export function setArrayItem(
-	varType: number,
-	arrayIdx: number,
-	idx: number,
-	value: number,
-) {
+export function setArrayItem(varType: number, arrayIdx: number, idx: number, value: number) {
 	if (idx >= getArraySize(arrayIdx)) return ERRORS.OVERFLOW;
 
 	let addr = getArrayPtr(arrayIdx);

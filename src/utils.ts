@@ -7,12 +7,7 @@ function _fillUp(value: string, count: number, fillWith: string) {
 
 const headers = "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F";
 
-export function hexdump(
-	buffer: Uint8Array,
-	offset: number,
-	length: number,
-	width = 16,
-) {
+export function hexdump(buffer: Uint8Array, offset: number, length: number, width = 16) {
 	offset = offset || 0;
 	length = length ?? buffer.length;
 
@@ -27,8 +22,7 @@ export function hexdump(
 			if (j < n) {
 				// var value = buffer.readUInt8(offset);
 				const value = buffer[offset];
-				string +=
-					value >= 32 && value <= 127 ? String.fromCharCode(value) : ".";
+				string += value >= 32 && value <= 127 ? String.fromCharCode(value) : ".";
 				row += `${_fillUp(value.toString(16).toUpperCase(), 2, "0")} `;
 				offset++;
 			} else {

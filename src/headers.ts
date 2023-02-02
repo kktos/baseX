@@ -3,13 +3,7 @@ import { HEADER } from "./defs";
 import { hexWord } from "./utils";
 
 function dumpHeader(name: string, offset: number) {
-	console.log(
-		hexWord(offset),
-		":",
-		hexWord(readBufferHeader(offset)),
-		";",
-		name,
-	);
+	console.log(hexWord(offset), ":", hexWord(readBufferHeader(offset)), ";", name);
 }
 
 export function dumpHeaders() {

@@ -48,10 +48,7 @@ function parse(srcFile: string) {
 	const content = readFileSync(srcFile);
 	const prg = parseSource(content.toString());
 	if (prg.err) {
-		console.error(
-			`ERR ${hexWord(prg.err)} - ${EnumToName(ERRORS, prg.err)}`,
-			prg.lineNum,
-		);
+		console.error(`ERR ${hexWord(prg.err)} - ${EnumToName(ERRORS, prg.err)}`, prg.lineNum);
 		return null;
 	}
 	return prg;
@@ -78,11 +75,7 @@ switch (cmd) {
 		term("**************** END **************\n");
 		term().white();
 
-		if (err)
-			console.error(
-				`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)}`,
-				prg.lineNum,
-			);
+		if (err) console.error(`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)}`, prg.lineNum);
 
 		dump(prg);
 		break;
