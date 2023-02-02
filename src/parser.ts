@@ -1,15 +1,6 @@
-import {
-	writeBufferHeader, writeBufferProgram
-} from "./buffer";
-import {
-	CMDS,
-	ERRORS,
-	HEADER, headers,
-	prgCode,
-	prgLines, SIZE, source, TPrgBuffer,
-	TYPES
-} from "./defs";
-import { lexer, tokenizer } from "./lexer";
+import { writeBufferHeader, writeBufferProgram } from "./buffer";
+import { CMDS, ERRORS, HEADER, headers, prgCode, prgLines, SIZE, source, TOKEN_TYPES, TPrgBuffer } from "./defs";
+import { lexer, lexerErr } from "./lexer";
 import { parserData } from "./parsers/data.parser";
 import { parserDim } from "./parsers/dim.parser";
 import { parserFor, parserNext } from "./parsers/for.parser";
@@ -22,7 +13,6 @@ import { parserPrint } from "./parsers/print.parser";
 import { parserRead } from "./parsers/read.parser";
 import { addPrgLine } from "./prglines";
 import { addString } from "./strings";
-import { addVar, findVar } from "./vars";
 
 export type TProgram = {
 	headers?: Uint8Array;
@@ -48,6 +38,9 @@ export function parseSource(src: string): TProgram {
 	for (let idx = 0; idx < lines.length; idx++) {
 		source.idx = 0;
 		source.buffer = lines[idx];
+
+		// console.log(idx, lines[idx]);
+
 		const err = parseLine();
 		if (err) {
 			// console.error("ERR", hexWord(err), ` at ${currentLineNum} : <${source.buffer.slice(source.idx)}>`);
@@ -71,19 +64,20 @@ export function parseSource(src: string): TProgram {
 }
 
 function parseLine() {
-	const tok = lexer();
-	if (tok == null) return;
-
-	currentLineNum = parseNum(tok);
+	currentLineNum = parseNum();
+	if (lexerErr === ERRORS.END_OF_LINE) return ERRORS.NONE;
 	if (isNaN(currentLineNum)) return ERRORS.SYNTAX_ERROR;
 
-	const cmd = tokenizer();
-	if (cmd === -1) return ERRORS.SYNTAX_ERROR;
+	const tok = lexer();
+	if (tok.err) return tok.err;
+
+	if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
 
 	const lineIdx = addPrgLine(currentLineNum, prgCode.idx);
-	writeBufferProgram(SIZE.byte, cmd);
+	writeBufferProgram(SIZE.byte, tok.value);
 
-	switch (cmd) {
+	let err: number = ERRORS.NONE;
+	switch (tok.value) {
 		case CMDS.LET:
 			parserLet();
 			break;
@@ -92,11 +86,10 @@ function parseLine() {
 			break;
 
 		case CMDS.READ:
-			const err = parserRead();
-			if (err) return err;
+			err = parserRead();
 			break;
 		case CMDS.DATA:
-			parserData();
+			err = parserData();
 			break;
 
 		case CMDS.REM: {
@@ -112,7 +105,7 @@ function parseLine() {
 			break;
 
 		case CMDS.FOR:
-			parserFor();
+			err = parserFor();
 			break;
 		case CMDS.NEXT:
 			parserNext();
@@ -137,11 +130,12 @@ function parseLine() {
 			break;
 
 		default: {
-			const err = parseParms();
-			if (err) return err;
+			return ERRORS.SYNTAX_ERROR;
+			// const err = parseParms();
+			// if (err) return err;
 		}
 	}
-
+	if (err) return err;
 	// console.log(currentLineNum, cmd);
 	return 0;
 }
@@ -149,7 +143,7 @@ function parseLine() {
 function parseString() {
 	return source.buffer.slice(source.idx);
 }
-
+/*
 function parseVar(tok: string) {
 	let varIdx = findVar(tok);
 	if (varIdx < 0) {
@@ -181,3 +175,4 @@ function parseParms() {
 
 	return 0;
 }
+*/

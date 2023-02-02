@@ -5,7 +5,7 @@
   "scripts": {
     "parse": "node ./dist/basex.js parse --vars --arrays --strings --lines --code --disasm ./examples/test_data.bas",
     "run": "node ./dist/basex.js run --vars --arrays --strings ./examples/test_data.bas",
-    "build": "esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --minify --target=node18 --external:terminal-kit",
+    "build": "esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
     "format": "rome format .",
     "lint": "rome check .",
     "format:fix": "rome format --write .",

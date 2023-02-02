@@ -1,49 +1,42 @@
 import { addArray } from "../arrays";
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, SIZE, TYPES } from "../defs";
-import { lexer, tokenizer } from "../lexer";
-import {
-	declareVar,
-	findVar,
-	getVarType,
-	setVar,
-	setVarDeclared,
-	setVarType,
-} from "../vars";
+import { CMDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { isLookaheadCommand, isOperator, lexeme, lexer } from "../lexer";
+import { declareVar, findVar, getVarType, isVarArray, isVarDeclared, isVarInt, setVar, setVarDeclared, setVarType } from "../vars";
 import { parseNum } from "./number.parser";
 
 export function parserDim() {
-	const varName = lexer();
-	if (varName == null) return ERRORS.SYNTAX_ERROR;
+	let tok = lexer();
+	if (tok.err) return tok.err;
+	if (tok.type !== TOKEN_TYPES.IDENTIFER) return ERRORS.SYNTAX_ERROR;
 
-	let varIdx = findVar(varName);
+	let varIdx = findVar(lexeme);
 	if (varIdx < 0) {
 		// varIdx= declareVar(varName, context.level, true);
-		varIdx = declareVar(varName, 0, true);
+		varIdx = declareVar(lexeme, 0, true);
 	} else {
-		const isArray = getVarType(varIdx) & TYPES.ARRAY;
-		if (!isArray) return ERRORS.TYPE_MISMATCH;
-
-		const isDeclared = !(getVarType(varIdx) & TYPES.UNDECLARED);
-		if (isDeclared) return ERRORS.TYPE_MISMATCH;
-
+		if (!isVarArray(varIdx) || isVarDeclared(varIdx)) return ERRORS.TYPE_MISMATCH;
 		setVarDeclared(varIdx);
 	}
 	writeBufferProgram(SIZE.word, varIdx);
 
-	if (lexer() !== "(") return ERRORS.SYNTAX_ERROR;
+	if (!isOperator(TOKENS.LEFT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
 	const dim = parseNum();
 	if (isNaN(dim)) return ERRORS.SYNTAX_ERROR;
 
-	if (lexer() !== ")") return ERRORS.SYNTAX_ERROR;
+	if (!isOperator(TOKENS.RIGHT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
-	if (tokenizer(true) === CMDS.AS) {
-		if ((getVarType(varIdx) & 0x3f) !== TYPES.int) return ERRORS.TYPE_MISMATCH;
+	if (isLookaheadCommand(CMDS.AS)) {
+		if (!isVarInt(varIdx)) return ERRORS.TYPE_MISMATCH;
 
 		lexer();
-		const size = tokenizer();
-		switch (size) {
+
+		tok = lexer();
+		if (tok.err) return tok.err;
+		if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
+
+		switch (tok.value) {
 			case CMDS.BYTE: {
 				setVarType(varIdx, TYPES.byte);
 				break;

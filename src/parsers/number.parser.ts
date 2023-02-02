@@ -1,6 +1,7 @@
-import { lexer } from "../lexer";
+import { TOKEN_TYPES } from "../defs";
+import { lexeme, lexer } from "../lexer";
 
-export function parseNum(tok?: string) {
-	const intStr = tok !== undefined ? tok : lexer();
-	return intStr == null ? NaN : parseInt(intStr);
+export function parseNum() {
+	const tok = lexer();
+	return !tok.err && tok.type === TOKEN_TYPES.INT ? parseInt(lexeme) : NaN;
 }

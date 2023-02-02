@@ -1,25 +1,28 @@
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TYPES } from "../defs";
+import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { parseExpr } from "../expr";
-import { lexer, tokenizer } from "../lexer";
-import { addVar, declareVar, findVar, setVarDeclared } from "../vars";
+import { isOperator, lexeme, lexer } from "../lexer";
+import { addVar, findVar, setVarAsArray, setVarDeclared } from "../vars";
 
 export function parserLet() {
-	const varName = lexer();
-	if (varName == null) return ERRORS.SYNTAX_ERROR;
+	let tok = lexer();
+	if (tok.err) return tok.err;
 
-	let tok = tokenizer();
-	const isArray = tok === TOKENS.LEFT_PARENT;
+	let varIdx = findVar(lexeme);
+	const isNewVar = varIdx < 0;
+	if (isNewVar) varIdx = addVar(lexeme, 0);
 
-	let varIdx = findVar(varName);
-	if (varIdx < 0) {
-		varIdx = isArray ? addVar(varName, 0, true) : declareVar(varName, 0);
-	} else setVarDeclared(varIdx);
+	tok = lexer();
+	if (tok.err) return tok.err;
+
+	const isArray = tok.type === TOKEN_TYPES.OPERATOR && tok.value === TOKENS.LEFT_PARENT;
 
 	if (isArray) {
+		setVarAsArray(varIdx);
+		// change CMD from LET to SETs
 		prgCode.idx--;
 		writeBufferProgram(SIZE.byte, CMDS.SET);
-	}
+	} else if (!isNewVar) setVarDeclared(varIdx);
 
 	writeBufferProgram(SIZE.word, varIdx);
 
@@ -29,15 +32,16 @@ export function parserLet() {
 
 		writeBufferProgram(SIZE.byte, TYPES.END);
 
-		if (tokenizer() !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+		if (!isOperator(TOKENS.RIGHT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
-		tok = tokenizer();
+		tok = lexer();
 	}
 
-	if (tok !== TOKENS.EQUAL) return ERRORS.SYNTAX_ERROR;
+	if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.EQUAL) return ERRORS.SYNTAX_ERROR;
 
 	const err = parseExpr();
 	if (err) return err;
+
 	writeBufferProgram(SIZE.byte, TYPES.END);
 
 	return 0;

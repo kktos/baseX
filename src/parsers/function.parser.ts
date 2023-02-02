@@ -1,27 +1,20 @@
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TYPES } from "../defs";
+import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { parseExpr } from "../expr";
-import { lexer, tokenizer } from "../lexer";
+import { isLookaheadOperator, lexeme, lexer } from "../lexer";
 import { addString } from "../strings";
-import {
-	findVar,
-	getTypeFromName,
-	isVarDeclared,
-	setVar,
-	setVarDeclared,
-	setVarFunction,
-} from "../vars";
+import { findVar, getTypeFromName, isVarDeclared, setVar, setVarAsFunction, setVarDeclared } from "../vars";
 
 export function parserFunction(lineIdx: number) {
-	let name = lexer();
-	if (name == null) return ERRORS.SYNTAX_ERROR;
+	let tok = lexer();
+	if (tok.err) return tok.err;
 
-	const varIdx = findVar(name);
+	const varIdx = findVar(lexeme);
 	if (varIdx >= 0) {
 		if (isVarDeclared(varIdx)) return ERRORS.DUPLICATE_NAME;
 
 		setVarDeclared(varIdx);
-		setVarFunction(varIdx);
+		setVarAsFunction(varIdx);
 		setVar(varIdx, lineIdx);
 
 		writeBufferProgram(SIZE.word, varIdx);
@@ -29,27 +22,34 @@ export function parserFunction(lineIdx: number) {
 		const parmCountPos = prgCode.idx;
 		writeBufferProgram(SIZE.byte, 0);
 
-		if (tokenizer(true) === TOKENS.LEFT_PARENT) {
+		if (isLookaheadOperator(TOKENS.LEFT_PARENT)) {
 			let done = false;
 			let parmCount = 0;
 			while (!done) {
 				lexer();
 
-				if (tokenizer() !== TOKENS.DOLLAR) return ERRORS.SYNTAX_ERROR;
+				if (!isLookaheadOperator(TOKENS.DOLLAR)) return ERRORS.SYNTAX_ERROR;
 
-				name = lexer();
-				if (name == null) return ERRORS.SYNTAX_ERROR;
+				tok = lexer();
+				if (tok.err) return tok.err;
 
-				const nameIdx = addString(name, true);
+				const nameIdx = addString(lexeme, true);
 				writeBufferProgram(SIZE.word, nameIdx);
 				parmCount++;
 
-				let varType = getTypeFromName(name);
-				let tok = tokenizer(true);
-				if (tok === CMDS.AS || tok === TOKENS.COLON) {
+				let varType = getTypeFromName(lexeme);
+
+				tok = lexer(true);
+				if (tok.err) return tok.err;
+
+				if ((tok.type === TOKEN_TYPES.COMMAND && tok.value === CMDS.AS) || (tok.type === TOKEN_TYPES.OPERATOR && tok.value === TOKENS.COLON)) {
 					lexer();
-					tok = tokenizer();
-					switch (tok) {
+
+					tok = lexer(true);
+					if (tok.err) return tok.err;
+					if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
+
+					switch (tok.value) {
 						case CMDS.INT:
 						case CMDS.WORD:
 							varType = TYPES.int;
@@ -66,15 +66,19 @@ export function parserFunction(lineIdx: number) {
 						default:
 							return ERRORS.SYNTAX_ERROR;
 					}
-					tok = tokenizer(true);
+
+					tok = lexer(true);
+					if (tok.err) return tok.err;
 				}
 				writeBufferProgram(SIZE.byte, varType);
 
-				switch (tok) {
-					case TOKENS.COMMA:
-					case TOKENS.RIGHT_PARENT:
-						done = true;
-						break;
+				if (tok.type === TOKEN_TYPES.OPERATOR) {
+					switch (tok.value) {
+						case TOKENS.COMMA:
+						case TOKENS.RIGHT_PARENT:
+							done = true;
+							break;
+					}
 				}
 			}
 			lexer();

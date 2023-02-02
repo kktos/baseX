@@ -1,14 +1,8 @@
 import { writeBufferProgram } from "./buffer";
-import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TYPES } from "./defs";
-import { advance, isIdentifer, lexeme, lexer, tokenizer } from "./lexer";
+import { ERRORS, FNS, OPERATORS, OPS, SIZE, TOKENS, TOKEN_TYPES, TToken, TYPES } from "./defs";
+import { advance, lexeme, lexer } from "./lexer";
 import { addString } from "./strings";
-import {
-	addVar,
-	findVar,
-	isVarArray,
-	isVarDeclared,
-	setVarFunction,
-} from "./vars";
+import { addVar, findVar, isVarArray, isVarDeclared, setVarAsFunction } from "./vars";
 
 export function parseExpr(): number {
 	const err = parseCmp();
@@ -23,37 +17,22 @@ function parseCmp(): number {
 
 	while (true) {
 		const tok = lexer(true);
-		switch (tok) {
-			case ">": {
+		if (tok.err === ERRORS.END_OF_LINE) return ERRORS.NONE;
+		if (tok.err) return tok.err;
+
+		if (tok.type !== TOKEN_TYPES.OPERATOR) return ERRORS.NONE;
+
+		switch (tok.value) {
+			case OPERATORS.GT:
+			case OPERATORS.LT:
+			case OPERATORS.EQ: {
 				lexer();
 
 				const err = parseAdd();
 				if (err) return err;
 
 				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.GT);
-
-				break;
-			}
-			case "<": {
-				lexer();
-
-				const err = parseAdd();
-				if (err) return err;
-
-				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.LT);
-
-				break;
-			}
-			case "=": {
-				lexer();
-
-				const err = parseAdd();
-				if (err) return err;
-
-				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.EQ);
+				writeBufferProgram(SIZE.byte, tok.value);
 
 				break;
 			}
@@ -69,26 +48,21 @@ function parseAdd(): number {
 
 	while (true) {
 		const tok = lexer(true);
-		switch (tok) {
-			case "+": {
+		if (tok.err === ERRORS.END_OF_LINE) return ERRORS.NONE;
+		if (tok.err) return tok.err;
+
+		if (tok.type !== TOKEN_TYPES.OPERATOR) return ERRORS.NONE;
+
+		switch (tok.value) {
+			case OPERATORS.ADD:
+			case OPERATORS.SUB: {
 				lexer();
 
 				const err = parseAdd();
 				if (err) return err;
 
 				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.ADD);
-
-				break;
-			}
-			case "-": {
-				lexer();
-
-				const err = parseAdd();
-				if (err) return err;
-
-				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.SUB);
+				writeBufferProgram(SIZE.byte, tok.value);
 
 				break;
 			}
@@ -104,25 +78,21 @@ function parseProduct(): number {
 
 	while (true) {
 		const tok = lexer(true);
-		switch (tok) {
-			case "*": {
+		if (tok.err === ERRORS.END_OF_LINE) return ERRORS.NONE;
+		if (tok.err) return tok.err;
+
+		if (tok.type !== TOKEN_TYPES.OPERATOR) return ERRORS.NONE;
+
+		switch (tok.value) {
+			case OPERATORS.MULT:
+			case OPERATORS.DIV: {
 				lexer();
 
 				const err = parseTerm();
 				if (err) return err;
 
 				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.MULT);
-				break;
-			}
-			case "/": {
-				lexer();
-
-				const err = parseTerm();
-				if (err) return err;
-
-				writeBufferProgram(SIZE.byte, TYPES.fn);
-				writeBufferProgram(SIZE.byte, OPERATORS.DIV);
+				writeBufferProgram(SIZE.byte, tok.value);
 				break;
 			}
 			default:
@@ -132,11 +102,11 @@ function parseProduct(): number {
 }
 
 function parseTerm(): number {
-	const tok = tokenizer(true);
-	if (!lexeme) return ERRORS.SYNTAX_ERROR;
+	let tok = lexer(true);
+	if (tok.err) return tok.err;
 
-	switch (tok) {
-		case TOKENS._INT: {
+	switch (tok.type) {
+		case TOKEN_TYPES.INT: {
 			advance();
 			const num = parseInt(lexeme);
 			writeBufferProgram(SIZE.byte, TYPES.int);
@@ -144,7 +114,7 @@ function parseTerm(): number {
 			return 0;
 		}
 
-		case TOKENS._FLOAT: {
+		case TOKEN_TYPES.FLOAT: {
 			advance();
 			const num = parseFloat(lexeme);
 			const buffer = new Uint8Array(4);
@@ -157,7 +127,7 @@ function parseTerm(): number {
 			return 0;
 		}
 
-		case TOKENS._STRING: {
+		case TOKEN_TYPES.STRING: {
 			advance();
 			writeBufferProgram(SIZE.byte, TYPES.string);
 			const idx = addString(lexeme.slice(1));
@@ -165,43 +135,27 @@ function parseTerm(): number {
 			return 0;
 		}
 
-		case TOKENS.RIGHT_PARENT: {
-			return 0;
-		}
-
-		case TOKENS.LEFT_PARENT: {
-			advance();
-			const err = parseExpr();
-			if (err) return err;
-
-			if (tokenizer() !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
-
-			return 0;
-		}
-
-		case TOKENS.DOLLAR: {
-			advance();
-			const varName = lexer();
-			if (varName == null) return ERRORS.SYNTAX_ERROR;
-			const nameIdx = addString(varName, true);
-			writeBufferProgram(SIZE.byte, TYPES.local);
-			writeBufferProgram(SIZE.word, nameIdx);
-			return 0;
-		}
+		case TOKEN_TYPES.OPERATOR:
+			return parseTermOperator(tok);
 	}
 
-	if (!isIdentifer) return ERRORS.SYNTAX_ERROR;
+	if (tok.type !== TOKEN_TYPES.IDENTIFER) return ERRORS.SYNTAX_ERROR;
 
 	advance();
 
 	if (FNS.hasOwnProperty(lexeme.toUpperCase())) {
 		const fn = FNS[lexeme.toUpperCase()];
-		if (tokenizer() !== TOKENS.LEFT_PARENT) return ERRORS.SYNTAX_ERROR;
+
+		let tok = lexer();
+		if (tok.err) return tok.err;
+		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== OPS.LEFT_PARENT) return ERRORS.SYNTAX_ERROR;
 
 		const err = parseExpr();
 		if (err) return err;
 
-		if (tokenizer() !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+		tok = lexer();
+		if (tok.err) return tok.err;
+		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== OPS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
 
 		writeBufferProgram(SIZE.byte, TYPES.fn);
 		writeBufferProgram(SIZE.byte, fn);
@@ -213,8 +167,10 @@ function parseTerm(): number {
 		varIdx = addVar(lexeme, 0);
 	}
 
-	const isArrOrFn = tokenizer(true) === TOKENS.LEFT_PARENT;
+	tok = lexer(true);
+	if (tok.err) return tok.err;
 
+	const isArrOrFn = tok.type === TOKEN_TYPES.OPERATOR && tok.value === OPS.LEFT_PARENT;
 	if (!isArrOrFn) {
 		writeBufferProgram(SIZE.byte, TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
@@ -229,7 +185,9 @@ function parseTerm(): number {
 		const err = parseExpr();
 		if (err) return err;
 
-		if (tokenizer() !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+		tok = lexer(true);
+		if (tok.err) return tok.err;
+		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== OPS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
 
 		writeBufferProgram(SIZE.byte, TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
@@ -240,18 +198,54 @@ function parseTerm(): number {
 
 	// fn(params, ...)
 
-	setVarFunction(varIdx);
+	setVarAsFunction(varIdx);
 
 	lexer();
 
 	const err = parseExpr();
 	if (err) return err;
 
-	if (lexer() !== ")") return ERRORS.SYNTAX_ERROR;
+	tok = lexer(true);
+	if (tok.err) return tok.err;
+	if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== OPS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
 
 	writeBufferProgram(SIZE.byte, TYPES.fn);
 	writeBufferProgram(SIZE.byte, FNS.USER_DEF);
 	writeBufferProgram(SIZE.word, varIdx);
 
 	return 0;
+}
+
+function parseTermOperator(tok: TToken) {
+	switch (tok.value) {
+		case TOKENS.RIGHT_PARENT: {
+			return 0;
+		}
+
+		case TOKENS.LEFT_PARENT: {
+			advance();
+			const err = parseExpr();
+			if (err) return err;
+
+			const tok = lexer();
+			if (tok.err) return tok.err;
+			if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== OPS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+
+			return 0;
+		}
+
+		case TOKENS.DOLLAR: {
+			advance();
+			const tok = lexer();
+			if (tok.err) return tok.err;
+			if (tok.type !== TOKEN_TYPES.IDENTIFER) return ERRORS.SYNTAX_ERROR;
+			const nameIdx = addString(lexeme, true);
+			writeBufferProgram(SIZE.byte, TYPES.local);
+			writeBufferProgram(SIZE.word, nameIdx);
+			return 0;
+		}
+
+		default:
+			return ERRORS.SYNTAX_ERROR;
+	}
 }
