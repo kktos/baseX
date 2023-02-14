@@ -1,9 +1,39 @@
 import { ERRORS, TYPES } from "./defs";
+import { memAlloc } from "./memmgr";
 import { hexdump, hexWord } from "./utils";
 
+/*
+
+	0000: arrays count
+
+	0002: array[0] length
+	0004: array[0] offset in Data
+
+	0006: array[1] length
+	0008: array[1] offset in Data
+
+	type Int16 = number;
+	type TArrayItem = {
+		size: Int16;
+		ptr: Int16;
+	};
+
+	type TArrayList = {
+		count: Int16;
+		items: TArrayItem[];
+	};
+*/
+
+const ARRAY_COUNT = 20;
 const ARRAY_RECORD_SIZE = 2 + 2;
-const arrayList = new Uint8Array(2 + 20 * ARRAY_RECORD_SIZE);
-const arrayData = new Uint8Array(2 + 20 * 255);
+const ARRAY_LIST_COUNT = 2;
+const ARRAY_DATA_SIZE = 2;
+
+const ARRAY_DATA_DIM_COUNT_SIZE = 1;
+const ARRAY_DATA_DIM_SIZE = 2;
+
+const arrayList = memAlloc(ARRAY_LIST_COUNT + ARRAY_COUNT * ARRAY_RECORD_SIZE);
+const arrayData = memAlloc(ARRAY_DATA_SIZE + ARRAY_COUNT * 255);
 
 // global._ARRAYLIST = arrayList;
 // global._ARRAYDATA = arrayData;
@@ -13,13 +43,29 @@ for (let idx = 0; idx < arrayList.length; idx++) arrayList[idx] = 0xff;
 writeWord(arrayList, 0, 0);
 writeWord(arrayData, 0, 2);
 
-export function addArray(varType: number, dim: number) {
+//
+// ARRAY LIST
+// 0000 : nn nn ; count -> count + 1
+// ...
+// XXX0 : ss ss ; array items count : all dims multiplied
+// XXX2 : pp pp ; data ptr in ARRAY DATA
+//
+// ARRAY DATA
+// 0000 : nn nn ; next free ptr
+// pppp : dd dd ; byte[ssss]
+//
+export function addArray(varType: number, dims: number[]) {
+	// inc array count
 	const count = readWord(arrayList, 0);
 	writeWord(arrayList, 0, count + 1);
 
 	// console.log("*** addArray", count, EnumToName(TYPES, varType), dim);
 
-	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE, dim);
+	// mutliply all dims together a(2,3) <=> a(6)
+	let arrayItemsCount = 1;
+	for (let idx = 0; idx < dims.length; idx++) {
+		arrayItemsCount *= dims[idx];
+	}
 
 	let itemSize = 2;
 	switch (varType) {
@@ -28,11 +74,27 @@ export function addArray(varType: number, dim: number) {
 			break;
 		}
 	}
+
+	const dataSizeInBytes= arrayItemsCount * itemSize;
+	const headerSizeInBytes= ARRAY_DATA_DIM_COUNT_SIZE + dims.length * ARRAY_DATA_DIM_SIZE;
+	const sizeInBytes= headerSizeInBytes + dataSizeInBytes;
+
+	// add new array bytes size into the ARRAY LIST
+	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE, sizeInBytes);
+
+	// move ARRAY DATA free ptr after new array
 	const freePtr = readWord(arrayData, 0);
-	writeWord(arrayData, 0, freePtr + dim * itemSize);
+	writeWord(arrayData, 0, freePtr + sizeInBytes);
 
-	for (let idx = freePtr; idx < freePtr + dim * itemSize; idx++) arrayData[idx] = 0xff;
+	// initialise new array data with $FF
+	for (let idx = freePtr; idx < freePtr + sizeInBytes; idx++) arrayData[idx] = 0xff;
 
+	writeByte(arrayData, freePtr, dims.length);
+	for (let idx = 0; idx < dims.length; idx++) {
+		writeWord(arrayData, freePtr+1+ idx*2, dims[idx]);
+	}
+
+	// add new array ptr into the ARRAY LIST
 	writeWord(arrayList, 2 + count * ARRAY_RECORD_SIZE + 2, freePtr);
 
 	return count;
@@ -50,7 +112,7 @@ export function setArrayItem(varType: number, arrayIdx: number, idx: number, val
 	if (idx >= getArraySize(arrayIdx)) return ERRORS.OVERFLOW;
 
 	let addr = getArrayPtr(arrayIdx);
-	switch (varType & 0x3f) {
+	switch (varType) {
 		case TYPES.string:
 		case TYPES.int: {
 			addr += idx * 2;

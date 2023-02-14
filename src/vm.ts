@@ -1,9 +1,24 @@
 import { getArrayItem, setArrayItem } from "./arrays";
 import { readBuffer, readBufferHeader, readBufferLine } from "./buffer";
-import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES } from "./defs";
+import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES, VAR_FLAGS } from "./defs";
 import { TProgram } from "./parser";
-import { addString, getString, resetTempStrings, setTempStrings } from "./strings";
-import { addVarNameIdx, findVar, getIteratorVar, getVar, getVarType, isVarDeclared, ITERATOR, removeVarsForLevel, setIteratorVar, setVar } from "./vars";
+import { concatStrings, copyString, createString, getString, newString, resetTempStrings, setTempStrings } from "./strings";
+import { hexByte, hexWord } from "./utils";
+import {
+	addVarNameIdx,
+	findVar,
+	getIteratorVar,
+	getVar,
+	getVarFlags,
+	getVarName,
+	getVarType,
+	isVarDeclared,
+	ITERATOR,
+	removeVarsForLevel,
+	setIteratorVar,
+	setVar,
+	setVarDeclared,
+} from "./vars";
 
 type TExpr = {
 	type: number;
@@ -286,30 +301,30 @@ function assignVar(excluded: number[] = []) {
 	const err = evalExpr();
 	if (err) return err;
 
-	// err= evalExpr();
-	// if(err)
-	// 	return err;
-
 	if (excluded.includes(expr.type)) return ERRORS.TYPE_MISMATCH;
 
-	if (getVarType(varIdx) !== expr.type) return ERRORS.TYPE_MISMATCH;
+	const varType = getVarType(varIdx);
 
-	setVar(varIdx, expr.value);
+	if (varType !== (expr.type & VAR_FLAGS.TYPE)) return ERRORS.TYPE_MISMATCH;
 
-	// switch(expr.type) {
-	// 	case TYPES.string: {
-	// 		setVar(varIdx, expr.value);
-	// 		break;
-	// 	}
-	// 	case TYPES.int: {
-	// 		setVar(varIdx, expr.value);
-	// 		break;
-	// 	}
-	// 	case TYPES.float: {
-	// 		setVar(varIdx, expr.value);
-	// 		break;
-	// 	}
-	// }
+	if (varType === TYPES.string) {
+		let destStrIdx = getVar(varIdx);
+
+		console.log(hexWord(destStrIdx), hexByte(getVarFlags(varIdx)), getVarName(varIdx));
+
+		if (destStrIdx === 0xffff) {
+			destStrIdx = createString(255);
+			setVar(varIdx, destStrIdx);
+		}
+
+		const err = copyString(destStrIdx, expr.value);
+		if (err) return err;
+	} else {
+		setVar(varIdx, expr.value);
+	}
+
+	setVarDeclared(varIdx);
+
 	return 0;
 }
 
@@ -426,7 +441,19 @@ function execFn(fnIdx: number) {
 			const op1 = context.exprStack.pop();
 			const op2 = context.exprStack.pop();
 			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
-			context.exprStack.push({ type: op1.type, value: op1.value + op2.value });
+
+			const result = { type: 0, value: 0 };
+			// concat strings
+			if (op1.type === TYPES.string) {
+				if (op2.type !== TYPES.string) return ERRORS.TYPE_MISMATCH;
+				result.type = TYPES.string;
+				result.value = concatStrings(op2.value, op1.value);
+			} else {
+				result.type = op1.type;
+				result.value = op1.value + op2.value;
+			}
+
+			context.exprStack.push(result);
 			break;
 		}
 		case OPERATORS.SUB: {
@@ -457,7 +484,7 @@ function execFn(fnIdx: number) {
 			const op1 = context.exprStack.pop();
 			if (!op1) return ERRORS.TYPE_MISMATCH;
 			op1.type = TYPES.string;
-			op1.value = addString(String.fromCharCode(op1.value));
+			op1.value = newString(String.fromCharCode(op1.value));
 			context.exprStack.push(op1);
 			break;
 		}
@@ -467,9 +494,9 @@ function execFn(fnIdx: number) {
 
 			if (!(op1 && arr)) return ERRORS.TYPE_MISMATCH;
 
-			if (op1.type !== TYPES.int && !(arr.type & TYPES.ARRAY)) return ERRORS.TYPE_MISMATCH;
+			if (op1.type !== TYPES.int && !(arr.type & VAR_FLAGS.ARRAY)) return ERRORS.TYPE_MISMATCH;
 
-			arr.type = arr.type & 0x3f;
+			arr.type = arr.type & VAR_FLAGS.TYPE;
 			arr.value = getArrayItem(arr.type, arr.value, op1.value);
 			context.exprStack.push(arr);
 			break;

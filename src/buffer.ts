@@ -1,5 +1,4 @@
 import { headers, prgCode, prgLines, SIZE, TPrgBuffer } from "./defs";
-import { hexByte, hexWord } from "./utils";
 
 function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 	switch (size) {
@@ -14,8 +13,7 @@ function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 }
 
 export function writeBufferProgram(size: number, value: number) {
-
-	console.log("writeBufferProgram", hexWord(prgCode.idx), size, size===1 ? hexByte(value):hexWord(value));
+	// console.log("writeBufferProgram", hexWord(prgCode.idx), size, size===1 ? hexByte(value):hexWord(value));
 
 	writeBuffer(prgCode, value, size);
 }

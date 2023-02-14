@@ -16,6 +16,16 @@ const SIZE = {
 	long: 3,
 };
 
+const VAR_FLAGS = {
+	// MASK
+	TYPE: 0b0001_1111, // 0x1f,
+	FLAGS: 0b1110_0000, // 0xe0,
+
+	FUNCTION: 0b0010_0000, // 0x20,
+	ARRAY: 0b0100_0000, // 0x40,
+	UNDECLARED: 0b1000_0000, // 0x80,
+};
+
 const TYPES = {
 	string: 1,
 	int: 2,
@@ -28,14 +38,6 @@ const TYPES = {
 
 	END: 0x00,
 	CLOSE: 0x60,
-
-	// MASK
-	SCALAR: 0x1f,
-	FLAGS: 0xe0,
-
-	FUNCTION: 0x20,
-	ARRAY: 0x40,
-	UNDECLARED: 0x80,
 };
 
 const CMDS: Record<string, number> = {
@@ -171,6 +173,7 @@ enum ERRORS {
 	END_OF_LINE = 0xfeed,
 }
 
+const HEADERS_SIZE = 14;
 const HEADER = {
 	VERSION: 0,
 	START: 2,
@@ -178,6 +181,7 @@ const HEADER = {
 	STRINGS: 6,
 	LINES: 8,
 	ARRAYS: 10,
+	DATA: 10,
 };
 
 export type TToken = {
@@ -201,11 +205,32 @@ const prgLines: TPrgBuffer = {
 	idx: 0,
 };
 
-const headers = new Uint8Array(12);
+const headers = new Uint8Array(HEADERS_SIZE);
 
 const source = {
 	buffer: "",
 	idx: 0,
 };
 
-export { source, identiferChar0, identiferChars, numberChars, ws, headers, prgLines, prgCode, ERRORS, CMDS, OPS, TOKENS, TOKEN_TYPES, FNS, OPERATORS, SIZE, TYPES, HEADER, FIELDS };
+export {
+	source,
+	identiferChar0,
+	identiferChars,
+	numberChars,
+	ws,
+	headers,
+	prgLines,
+	prgCode,
+	ERRORS,
+	CMDS,
+	OPS,
+	TOKENS,
+	TOKEN_TYPES,
+	FNS,
+	OPERATORS,
+	SIZE,
+	TYPES,
+	HEADER,
+	FIELDS,
+	VAR_FLAGS,
+};

@@ -1,10 +1,18 @@
 import { addArray } from "../arrays";
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
-import { isLookaheadCommand, isOperator, lexeme, lexer } from "../lexer";
+import { isLookaheadCommand, isLookaheadOperator, isOperator, lexeme, lexer } from "../lexer";
 import { declareVar, findVar, getVarType, isVarArray, isVarDeclared, isVarInt, setVar, setVarDeclared, setVarType } from "../vars";
 import { parseNum } from "./number.parser";
 
+//
+// TODO: re-DIM error
+//     20 dim b%(15)
+//     30 dim b%(20) <- REDIM ERROR
+//
+// DIM
+// 0000 : 01        ; DIM
+// 0001 : 0000      ; varIdx e.g. a[]
 export function parserDim() {
 	let tok = lexer();
 	if (tok.err) return tok.err;
@@ -22,8 +30,18 @@ export function parserDim() {
 
 	if (!isOperator(TOKENS.LEFT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
-	const dim = parseNum();
-	if (isNaN(dim)) return ERRORS.SYNTAX_ERROR;
+	const dims: number[] = [];
+
+	while (true) {
+		const dim = parseNum();
+		if (isNaN(dim)) return ERRORS.SYNTAX_ERROR;
+
+		dims.push(dim);
+
+		if (!isLookaheadOperator(TOKENS.COMMA)) break;
+
+		lexer();
+	}
 
 	if (!isOperator(TOKENS.RIGHT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
@@ -49,7 +67,7 @@ export function parserDim() {
 		}
 	}
 
-	const arrIdx = addArray(getVarType(varIdx) & 0x3f, dim);
+	const arrIdx = addArray(getVarType(varIdx), dims);
 	setVar(varIdx, arrIdx);
 
 	return 0;

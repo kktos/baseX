@@ -1,5 +1,5 @@
 import { readBufferHeader } from "./buffer";
-import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES, VAR_FLAGS } from "./defs";
 import { getString } from "./strings";
 import { EnumToName, hexByte, hexLong, hexWord } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
@@ -25,7 +25,7 @@ function readLineWord() {
 function disasmVar() {
 	const varType = readProgramByte();
 	console.log(hexWord(addr), ":", hexByte(varType), "  ;");
-	switch (varType & TYPES.SCALAR) {
+	switch (varType & VAR_FLAGS.TYPE) {
 		case TYPES.string: {
 			const strIdx = readProgramWord();
 			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", getString(strIdx));
@@ -123,17 +123,13 @@ function disasLine() {
 			let byte;
 			while (byte !== TYPES.END) {
 				byte = readProgramByte();
-				const isArray= byte === (TYPES.var | TYPES.ARRAY);
+				const isArray = byte === (TYPES.var | VAR_FLAGS.ARRAY);
 
 				const varIdx = readProgramWord();
-				console.log(
-					`${hexWord(addr)} : ${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`
-				);
+				console.log(`${hexWord(addr)} : ${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`);
 
-				if(isArray)
-					disasmExpr();
-				else
-					readProgramByte();
+				if (isArray) disasmExpr();
+				else readProgramByte();
 
 				byte = readProgramByte(true);
 				if (byte === TYPES.END) {
@@ -210,7 +206,6 @@ function dumpWordByte(word: number, byte: number, cmt: string) {
 }
 
 function disasmExpr() {
-
 	while (true) {
 		const memaddr = prgCursor;
 		const itemType = readProgramByte();
@@ -291,10 +286,8 @@ export function disasmPrg() {
 	let counter = 100;
 
 	while (lineCursor !== 0xffff) {
-
 		counter--;
-		if(!counter)
-			break;
+		if (!counter) break;
 
 		const lineNum = readLineWord();
 		prgCursor = readLineWord();

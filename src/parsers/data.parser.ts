@@ -1,7 +1,7 @@
 import { writeBufferProgram } from "../buffer";
 import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { advance, lexeme, lexer } from "../lexer";
-import { addString } from "../strings";
+import { newString } from "../strings";
 
 export function parserData(): ERRORS {
 	while (true) {
@@ -51,7 +51,7 @@ function parseItem(): ERRORS {
 		case TOKEN_TYPES.STRING: {
 			advance();
 			writeBufferProgram(SIZE.byte, TYPES.string);
-			const idx = addString(lexeme.slice(1));
+			const idx = newString(lexeme.slice(1));
 			writeBufferProgram(SIZE.word, idx);
 			return ERRORS.NONE;
 		}

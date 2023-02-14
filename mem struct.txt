@@ -41,10 +41,12 @@
 ;
 
 00: 00 01		; version
-02: 00 00		; vars
-04: 00 00		; strings
-06: 00 00		; indexes
-08: 1E 00		; start line[idx]
+02: 1E 00		; start line[idx]
+04: 00 00		; vars ptr
+06: 00 00		; strings ptr
+08: 00 00		; lines ptr
+0A: 00 00		; arrays ptr
+0C: 00 00		; data ptr
 
 ;
 ; PROGRAM
@@ -89,8 +91,9 @@
 001E: 64 00 13 00 18 00; 100 ptr:$0013 next_idx:$0018
 
 ;
-; vars
+; VARS
 ;
+
 0000: count: int16
 0002: vars[]
 000X+00: 	type: int8 		; =0=> skip record !=0=> b8: undeclared b7: array b6: function b3-b0: 1:string 2:int 3:float 6:iterator
@@ -109,8 +112,82 @@
 000X+0A: 	ptr: int16 		; pointer
 
 ;
-; strings
+; ARRAYS
 ;
+
+; -- indexes --
+0000: 00 00 	; arrays count
+
+0002:  			; array[0] eg: dim(15)
+0002: 0F 00 	; - dim
+0004: 02 00 	; - offset in data
+
+0006:  			; array[1] eg: dim(100)
+0006: 64 00 	; - dim
+0008: 20 00 	; - offset in data
+
+000A:  			; array[2] eg: dim(64) STRINGS array
+000A: 40 00 	; - dim
+000C: 00 10 	; - offset in data : dataPtr + $1000
+
+000E:  			; array[3] eg: dim(32) STRINGS[0] 1st block
+000E: 20 00 	; - dim
+0010: 02 20 	; - offset in data
+
+0012:  			; array[4] eg: dim(32) STRINGS[0] 2nd block
+0012: 20 00 	; - dim
+0014: 02 20 	; - offset in data
+
+; -- data --
+0000: 00 15 	; offset to the free space (dataPtr + $1500)
+
+0002: 00 		; space for data array
+[...]
+1000: 	 		; space for STRINGS data array
+				; see STRINGS for details
+
+2000: 		 		; STRINGS[0] 1st block
+2000: 12 00 		; strIdx for next block
+2002: 47 55 45 53	; "GUESS THE NUMBER BETWEEN 1 AND 100."
+2006: 53 20 54 48
+200A: 45 20 4E 55
+200E: 4D 42 45 52
+2012: 20 42 45 54
+2016: 57 45 45 4E
+201A: 20 31 20 41
+201E: 4E 44
+
+2020: 00 00 		; =0 EOS - strIdx for next block
+2022: 20 31 30 30
+2026: 2E 00 00 00
+202A: 00 00 00 00
+202E: 00 00 00 00
+2032: 00 00 00 00
+2036: 00 00 00 00
+203A: 00 00 00 00
+204E: 00 00
+
+
+2020: 		 	; STRINGS[0] 2nd block
+2020: 00 00 	;
+
+
+;
+; STRINGS
+;
+; one system array used as string indexes
+; and all strings are arrays of bytes
+
+; array data of system array
+0000: 00 00 	; strings count
+
+0002: 03 00 	; string[0] array idx
+0004: 04 00 	; string[1] array idx
+0006: 05 00 	; string[2] array idx
+
+; strings are hold in blocks (arrays) of 32 bytes
+;
+
 0000: "GUESSING GAME"
 000F: "GUESS THE NUMBER BETWEEN 1 AND 100."
 0034: "YOUR GUESS"
@@ -122,6 +199,7 @@
 0000: 00 00		; str[0]
 0002: 0F 00		; str[1]
 0004: 34 00		; str[2]
+
 
 ;
 VAR/TYPES

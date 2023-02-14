@@ -12,7 +12,7 @@ import { parseNum } from "./parsers/number.parser";
 import { parserPrint } from "./parsers/print.parser";
 import { parserRead } from "./parsers/read.parser";
 import { addPrgLine } from "./prglines";
-import { addString } from "./strings";
+import { newString } from "./strings";
 
 export type TProgram = {
 	headers?: Uint8Array;
@@ -82,7 +82,7 @@ function parseLine() {
 			parserLet();
 			break;
 		case CMDS.DIM:
-			parserDim();
+			err = parserDim();
 			break;
 
 		case CMDS.READ:
@@ -94,7 +94,7 @@ function parseLine() {
 
 		case CMDS.REM: {
 			const str = parseString();
-			const idx = addString(str);
+			const idx = newString(str);
 			writeBufferProgram(SIZE.word, idx);
 			break;
 		}

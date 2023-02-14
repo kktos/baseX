@@ -22,7 +22,7 @@ export function parserLet() {
 		// change CMD from LET to SETs
 		prgCode.idx--;
 		writeBufferProgram(SIZE.byte, CMDS.SET);
-	} else if (!isNewVar) setVarDeclared(varIdx);
+	} else if (isNewVar) setVarDeclared(varIdx);
 
 	writeBufferProgram(SIZE.word, varIdx);
 

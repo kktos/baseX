@@ -1,5 +1,5 @@
 import { writeBufferProgram } from "../buffer";
-import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES, VAR_FLAGS } from "../defs";
 import { parseExpr } from "../expr";
 import { isOperator, lexeme, lexer } from "../lexer";
 import { addVar, findVar } from "../vars";
@@ -26,10 +26,10 @@ export function parserRead() {
 
 		const isArray = tok.type === TOKEN_TYPES.OPERATOR && tok.value === TOKENS.LEFT_PARENT;
 
-		writeBufferProgram(SIZE.byte, isArray ? TYPES.ARRAY|TYPES.var : TYPES.var);
+		writeBufferProgram(SIZE.byte, isArray ? VAR_FLAGS.ARRAY | TYPES.var : TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
 
-		if(isArray) {
+		if (isArray) {
 			const err = parseExpr();
 			if (err) return err;
 
@@ -39,11 +39,9 @@ export function parserRead() {
 
 			tok = lexer();
 			if (tok.err) {
-				if (tok.err === ERRORS.END_OF_LINE)
-					break;
+				if (tok.err === ERRORS.END_OF_LINE) break;
 				return tok.err;
 			}
-
 		} else {
 			writeBufferProgram(SIZE.byte, TYPES.END);
 		}

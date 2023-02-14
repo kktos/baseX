@@ -23,7 +23,7 @@ let cmd: string = "";
 // const term = require( 'terminal-kit' ).terminal ;
 
 const args = yargs(process.argv.splice(2))
-	.scriptName("baseX")
+	.scriptName("basX")
 	.command("parse <filename>", "parse basic source file", {}, () => {
 		cmd = "parse";
 	})
@@ -67,13 +67,11 @@ switch (cmd) {
 		// disasmPrg();
 		// list();
 
-		term().blue();
-		term("*************** START *************\n");
+		term().blue("\n*************** START *************\n");
 
 		const err = run(prg);
 
-		term("**************** END **************\n");
-		term().white();
+		term().blue("\n**************** END **************\n\n");
 
 		if (err) console.error(`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)}`, prg.lineNum);
 

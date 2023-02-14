@@ -1,6 +1,6 @@
 import { getArraySize } from "./arrays";
-import { FIELDS, TYPES } from "./defs";
-import { addString, getString } from "./strings";
+import { FIELDS, TYPES, VAR_FLAGS } from "./defs";
+import { getString, newString } from "./strings";
 import { EnumToName, hexByte, hexdump, hexLong, hexWord } from "./utils";
 
 // 2: namedIdx
@@ -65,7 +65,7 @@ export function addVarNameIdx(nameIdx: number, level: number, varType: number, i
 	const count = readWord(0);
 	let slotCount = 1;
 
-	writeVarByte(count, FIELDS.TYPE, varType | (isDeclared ? 0 : TYPES.UNDECLARED) | (isArray ? TYPES.ARRAY : 0));
+	writeVarByte(count, FIELDS.TYPE, varType | (isDeclared ? 0 : VAR_FLAGS.UNDECLARED) | (isArray ? VAR_FLAGS.ARRAY : 0));
 	writeVarByte(count, FIELDS.LEVEL, level);
 	writeVarWord(count, FIELDS.NAME, nameIdx);
 	writeVarWord(count, FIELDS.VALUE, 0xffff);
@@ -83,7 +83,7 @@ export function addVarNameIdx(nameIdx: number, level: number, varType: number, i
 }
 
 export function addVar(name: string, level: number = 0, isArray = false, isDeclared = false) {
-	const nameIdx = addString(name, true);
+	const nameIdx = newString(name, true);
 
 	// console.log("addVar", name, hexWord(nameIdx));
 
@@ -121,7 +121,7 @@ export function removeVarsForLevel(level: number) {
 }
 
 export function setVarDeclared(idx: number) {
-	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) & (TYPES.UNDECLARED ^ 0xff));
+	writeVarByte(idx, FIELDS.TYPE, readVarByte(idx, FIELDS.TYPE) & (VAR_FLAGS.UNDECLARED ^ 0xff));
 }
 
 export function findVar(name: string, level = -1) {
@@ -155,6 +155,20 @@ export function setVar(idx: number, value: number) {
 
 	writeVarWord(idx, FIELDS.VALUE, value);
 }
+
+// export function copyVar(destIdx: number, srcIdx: number) {
+// 	const destType = getVarType(destIdx);
+// 	const srcType = getVarType(srcIdx);
+// 	if(destType !== srcType) return ERRORS.TYPE_MISMATCH;
+
+// 	if(destType === TYPES.string) {
+// 		return copyString(readVarWord(destIdx, FIELDS.VALUE), readVarWord(destIdx, FIELDS.VALUE));
+// 	} else {
+// 		writeVarWord(destIdx, FIELDS.VALUE, srcIdx);
+// 	}
+
+// 	return ERRORS.NONE;
+// }
 
 export function getVar(idx: number) {
 	const varType = getVarType(idx);
@@ -207,35 +221,33 @@ export function getTypeFromName(name: string) {
 }
 
 export function getVarType(idx: number) {
-	return readVarByte(idx, FIELDS.TYPE);
+	return readVarByte(idx, FIELDS.TYPE) & VAR_FLAGS.TYPE;
 }
-
+export function getVarFlags(idx: number) {
+	return readVarByte(idx, FIELDS.TYPE) & VAR_FLAGS.FLAGS;
+}
 export function isVarArray(idx: number) {
-	return getVarType(idx) & TYPES.ARRAY;
+	return getVarFlags(idx) & VAR_FLAGS.ARRAY;
 }
-
 export function isVarInt(idx: number) {
-	return (getVarType(idx) & 0x3f) === TYPES.int;
+	return getVarType(idx) === TYPES.int;
 }
-
 export function isVarDeclared(idx: number) {
-	return !(getVarType(idx) & TYPES.UNDECLARED);
+	return !(getVarFlags(idx) & VAR_FLAGS.UNDECLARED);
 }
-
 export function isVarFunction(idx: number) {
-	return getVarType(idx) & TYPES.FUNCTION;
+	return getVarFlags(idx) & VAR_FLAGS.FUNCTION;
 }
 
 export function setVarType(idx: number, type: number) {
-	return writeVarByte(idx, FIELDS.TYPE, (getVarType(idx) & TYPES.FLAGS) | type);
+	return writeVarByte(idx, FIELDS.TYPE, type | getVarFlags(idx));
 }
-
 export function setVarAsFunction(idx: number) {
-	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | TYPES.FUNCTION);
+	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | VAR_FLAGS.FUNCTION);
 }
 
 export function setVarAsArray(idx: number) {
-	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | TYPES.ARRAY);
+	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | VAR_FLAGS.ARRAY);
 }
 
 export function addIteratorVar(idx: number) {
@@ -303,14 +315,14 @@ export function dumpVars() {
 		let name = getString(nameIdx);
 
 		let arraySize;
-		const isArray = typeFlags & TYPES.ARRAY;
+		const isArray = typeFlags & VAR_FLAGS.ARRAY;
 		if (isArray) {
 			// typeFlags= typeFlags & (TYPES.ARRAY ^ 0xFF);
 			arraySize = getArraySize(value);
 		}
-		const isFunction = typeFlags & TYPES.FUNCTION;
-		const isDeclared = !(typeFlags & TYPES.UNDECLARED);
-		const type = typeFlags & TYPES.SCALAR;
+		const isFunction = typeFlags & VAR_FLAGS.FUNCTION;
+		const isDeclared = !(typeFlags & VAR_FLAGS.UNDECLARED);
+		const type = typeFlags & VAR_FLAGS.TYPE;
 
 		const getValueString = () => {
 			if (isArray) return hexWord(value);

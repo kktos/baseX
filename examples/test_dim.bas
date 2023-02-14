@@ -1,3 +1,1 @@
-10 dim a$(10)
-20 let tmp$="toto"
-30 let a$(i%)= tmp$
+10 dim a%(16,4)

@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "parse": "node ./dist/basex.js parse --vars --arrays --strings --lines --code --disasm ./examples/test_data.bas",
-    "run": "node ./dist/basex.js run --vars --arrays --strings ./examples/test_data.bas",
-    "build": "esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
+    "run:parse": "node ./dist/basex.js parse --vars --arrays --strings --lines --code --disasm ./examples/test_dim.bas",
+    "run:run": "node ./dist/basex.js run --disasm --vars --arrays --strings ./examples/test_strings.bas",
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
     "format": "rome format .",
     "lint": "rome check .",
     "format:fix": "rome format --write .",
-    "lint:fix": "rome check --apply-suggested ."
+    "lint:fix": "rome check --apply-suggested .",
+    "parse": "node ./dist/basex.js parse --all "
   },
   "devDependencies": {
     "@types/node": "^18.11.18",

@@ -155,7 +155,8 @@ export function lexer(lookahead = false): TToken {
 	// bra next
 	// nextTest:
 	//
-	return { type: tokenType, value: token, err: lexerErr };
+
+	return { type: tokenType ?? 0, value: token ?? 0, err: lexerErr };
 }
 
 export function isLookaheadOperator(op: number) {

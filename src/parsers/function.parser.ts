@@ -2,7 +2,7 @@ import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { parseExpr } from "../expr";
 import { isLookaheadOperator, lexeme, lexer } from "../lexer";
-import { addString } from "../strings";
+import { newString } from "../strings";
 import { findVar, getTypeFromName, isVarDeclared, setVar, setVarAsFunction, setVarDeclared } from "../vars";
 
 export function parserFunction(lineIdx: number) {
@@ -33,7 +33,7 @@ export function parserFunction(lineIdx: number) {
 				tok = lexer();
 				if (tok.err) return tok.err;
 
-				const nameIdx = addString(lexeme, true);
+				const nameIdx = newString(lexeme, true);
 				writeBufferProgram(SIZE.word, nameIdx);
 				parmCount++;
 
