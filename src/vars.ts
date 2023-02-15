@@ -1,4 +1,4 @@
-import { getArraySize } from "./arrays";
+import { getArrayDims } from "./arrays";
 import { FIELDS, TYPES, VAR_FLAGS } from "./defs";
 import { getString, newString } from "./strings";
 import { EnumToName, hexByte, hexdump, hexLong, hexWord } from "./utils";
@@ -314,11 +314,11 @@ export function dumpVars() {
 
 		let name = getString(nameIdx);
 
-		let arraySize;
+		let arrayDims;
 		const isArray = typeFlags & VAR_FLAGS.ARRAY;
 		if (isArray) {
 			// typeFlags= typeFlags & (TYPES.ARRAY ^ 0xFF);
-			arraySize = getArraySize(value);
+			arrayDims = getArrayDims(value).join(",");
 		}
 		const isFunction = typeFlags & VAR_FLAGS.FUNCTION;
 		const isDeclared = !(typeFlags & VAR_FLAGS.UNDECLARED);
@@ -363,7 +363,7 @@ export function dumpVars() {
 			(level > 0 ? "L" : "G") + hexByte(level),
 			name.padEnd(20, " "),
 			":",
-			EnumToName(TYPES, type) + (isArray ? `[${arraySize}]` : "") + (isFunction ? "()" : ""),
+			EnumToName(TYPES, type) + (isArray ? `[${arrayDims}]` : "") + (isFunction ? "()" : ""),
 			"=",
 			isDeclared ? "" : "undeclared!",
 			valueStr,

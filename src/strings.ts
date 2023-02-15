@@ -1,4 +1,4 @@
-import { addArray, getArrayItem, getArraySize, setArrayItem } from "./arrays";
+import { addArray, getArrayItem, setArrayItem } from "./arrays";
 import { ERRORS, TYPES } from "./defs";
 import { hexWord } from "./utils";
 
@@ -23,16 +23,19 @@ import { hexWord } from "./utils";
 		items: TStringItem[];
 	};
 */
+const BYTE= 1;
+const WORD= 2;
 
-const STRINGS_COUNT = 64;
-const STRING_BLOCK_SIZE = 32;
-const STRING_RECORD_SIZE = 2 + 2;
-const FIELD_COUNT_SIZE = 2;
+const STRINGS_COUNT = 57;
+const STRING_BLOCK_SIZE = 255;
+const VARNAME_STRING_BLOCK_SIZE = 32-3;
+const STRING_RECORD_SIZE = BYTE + WORD;
+const FIELD_COUNT_SIZE = WORD;
 const FIELD_NEXT_SIZE = 2;
 const FIELD = {
 	STRING_COUNT: 0,
 	STRING_LENGTH: 0,
-	STRING_ARRAY_IDX: 2,
+	STRING_ARRAY_IDX: 1,
 	NEXT_BLOCK: 0,
 };
 
@@ -50,44 +53,60 @@ function createStringIndexesArray() {
 	//    2 + 64 * 4 = 258
 
 	// add a array to store indices to array(of chars used as string)
-	stringArrayIdx = addArray(TYPES.byte, [FIELD_COUNT_SIZE + STRING_RECORD_SIZE * STRINGS_COUNT]);
+	stringArrayIdx = addArray(TYPES.byte, [FIELD_COUNT_SIZE + STRING_RECORD_SIZE * STRINGS_COUNT], 0xCA);
 	// fist item if the strings count
 	setArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT, 0);
 }
 
-export function createString(length: number, isVarName = false) {
+export function createStringArray(length: number, isVarName = false) {
 	if (stringArrayIdx < 0) createStringIndexesArray();
 
+	//
+	// TStringList.count= TStringList.count + 1
+	//
+
 	// get strings count
-	const strCount = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT) + 1;
+	const strCount = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT);
 	// set it + 1
-	setArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT, strCount);
+	setArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT, strCount + 1);
+
+	//
+	// TStringList.items[strCount].length= length
+	//
 
 	const strIdx = FIELD_COUNT_SIZE + strCount * STRING_RECORD_SIZE;
-
 	// store the string length
 	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_LENGTH, length);
 
-	// add 1st block array to store the string
-	const arrayIdx = addArray(TYPES.byte, [STRING_BLOCK_SIZE]) | (isVarName ? 0x8000 : 0x0000);
+	//
+	// TStringList.items[strCount].arrayIdx= arrayIdx
+	//
+
+	// add block array to store the string (small one if varname)
+	let arrayIdx = addArray(TYPES.byte, [isVarName ? VARNAME_STRING_BLOCK_SIZE : STRING_BLOCK_SIZE]) | (isVarName ? 0x8000 : 0x0000);
 
 	// add the idx to the string array indices
-	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_ARRAY_IDX, arrayIdx);
+	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_ARRAY_IDX, arrayIdx & 0xFF);
+	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_ARRAY_IDX + 1, arrayIdx>>8 & 0xFF);
 
-	let previousBlockIdx = arrayIdx;
-	while (true) {
-		length = length - STRING_BLOCK_SIZE - FIELD_NEXT_SIZE;
-		if (length <= 0) break;
-
-		const blockIdx = addArray(TYPES.byte, [STRING_BLOCK_SIZE]);
-
-		// set previous block NEXT to point to blockIdx
-		setArrayItem(TYPES.byte, previousBlockIdx, FIELD.NEXT_BLOCK, blockIdx);
-
-		previousBlockIdx = blockIdx;
-	}
+	arrayIdx&= 0x7FFF;
+	// set str len to 0
+	setArrayItem(TYPES.byte, arrayIdx, 0, 0);
 
 	return arrayIdx;
+}
+
+/**
+ *
+ * @param length size of the empty string to add
+ * @returns new string count
+ */
+export function createString(length: number) {
+
+	createStringArray(length);
+
+	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT) - 1;
+	return strIdx;
 }
 
 /**
@@ -97,16 +116,15 @@ export function createString(length: number, isVarName = false) {
  * @returns new string count
  */
 export function newString(str: string, isVarName = false) {
-	const strIdx = createString(str.length, isVarName);
+	const strArrayIdx = createStringArray(str.length, isVarName);
+	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT) - 1;
 
 	// copy string chars into the new array
 	for (let idx = 0; idx < str.length; idx++) {
-		setArrayItem(TYPES.byte, strIdx, idx, str.charCodeAt(idx));
+		setArrayItem(TYPES.byte, strArrayIdx, idx, str.charCodeAt(idx));
 	}
 
-	// console.log("addString", str, isVarName, strIdx);
-
-	return getArrayItem(TYPES.int, stringArrayIdx, 0);
+	return strIdx;
 }
 
 export function setString(idx: number, str: string) {
@@ -130,25 +148,30 @@ export function setString(idx: number, str: string) {
 export function getString(idx: number) {
 	let result = "";
 
-	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, idx) & 0x7fff;
-	const len = getArraySize(strIdx);
-	for (let idx = 0; idx < len; idx++) {
-		const ch = getArrayItem(TYPES.byte, strIdx, idx);
+	const strIdx = FIELD_COUNT_SIZE + idx * STRING_RECORD_SIZE;
+	const strLen = getArrayItem(TYPES.byte, stringArrayIdx, strIdx);
+	let strArrayIdx = getArrayItem(TYPES.byte, stringArrayIdx, strIdx + BYTE) | getArrayItem(TYPES.byte, stringArrayIdx, strIdx + BYTE + BYTE)<<8;
+
+	strArrayIdx&= 0x7FFF;
+
+	for (let idx = 0; idx < strLen; idx++) {
+		const ch = getArrayItem(TYPES.byte, strArrayIdx, idx);
 		result += String.fromCharCode(ch);
 	}
 	return result;
 }
 
 export function getStringLen(idx: number) {
-	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, idx) & 0x7fff;
-	return getArraySize(strIdx);
+	const strIdx = FIELD_COUNT_SIZE + idx * STRING_RECORD_SIZE;
+	const strLen = getArrayItem(TYPES.byte, stringArrayIdx, strIdx);
+	return strLen;
 }
 
 export function concatStrings(strIdx1: number, strIdx2: number) {
 	const str1Len = getStringLen(strIdx1);
 	const str2Len = getStringLen(strIdx2);
 	const destStrLen = str1Len + str2Len;
-	const strIdx = createString(destStrLen);
+	const strIdx = createStringArray(destStrLen);
 
 	let destPtr = 0;
 	for (let idx = 0; idx < str1Len; idx++) {
@@ -193,8 +216,9 @@ export function dumpStrings() {
 	console.log(`array:${stringArrayIdx} count:${strCount}`);
 
 	for (let idx = 0; idx < strCount; idx++) {
-		const strIdx = getArrayItem(TYPES.int, stringArrayIdx, idx + 1);
-		console.log(`${String(idx).padStart(4, "0")} array:${hexWord(strIdx)} ${strIdx & 0x8000 ? "v" : " "} "${getString(idx + 1)}"`);
+		const strIdx = FIELD_COUNT_SIZE + idx * STRING_RECORD_SIZE;
+		const strArrayIdx = getArrayItem(TYPES.byte, stringArrayIdx, strIdx + BYTE) | getArrayItem(TYPES.byte, stringArrayIdx, strIdx + BYTE + BYTE)<<8;
+		console.log(`${String(idx).padStart(4, "0")} array:${hexWord(strArrayIdx)} ${strArrayIdx & 0x8000 ? "v" : " "} "${getString(idx)}"`);
 	}
 	console.log("");
 }

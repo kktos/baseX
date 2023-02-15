@@ -13,8 +13,8 @@ export function hexdump(buffer: Uint8Array, offset: number, length: number, widt
 
 	let out = `${_fillUp("Offset", 8, " ")}  ${headers.slice(0, width * 3)}\n`;
 	let row = "";
-	for (let i = 0; i < length; i += width) {
-		const n = Math.min(width, length - offset);
+	for (let idx = 0; idx < length; idx += width) {
+		const n = Math.min(width, length - idx);
 		if (n === 0) continue;
 		row += `${_fillUp(offset.toString(16).toUpperCase(), 8, "0")}  `;
 		let string = "";
