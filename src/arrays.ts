@@ -1,9 +1,9 @@
-import { ERRORS, TYPES } from "./defs";
+import { ERRORS, TPrint, TYPES } from "./defs";
 import { memAlloc } from "./memmgr";
 import { hexdump, hexWord } from "./utils";
 
-const WORD= 2;
-const BYTE= 1;
+const WORD = 2;
+const BYTE = 1;
 
 const ARRAY_COUNT = 20;
 
@@ -14,10 +14,10 @@ const ARRAY_COUNT = 20;
 		dataPtr: Int16;
 	};
 */
-const ARRAY_ITEM= {
+const ARRAY_ITEM = {
 	SIZE: WORD,
 	DIM_PTR: WORD,
-	DATA_PTR: WORD
+	DATA_PTR: WORD,
 };
 // sizeof TArrayItem
 const ARRAY_ITEM_SIZE = ARRAY_ITEM.SIZE + ARRAY_ITEM.DIM_PTR + ARRAY_ITEM.DATA_PTR;
@@ -28,7 +28,7 @@ const ARRAY_ITEM_SIZE = ARRAY_ITEM.SIZE + ARRAY_ITEM.DIM_PTR + ARRAY_ITEM.DATA_P
 		items: TArrayItem[ARRAY_COUNT];
 	};
 */
-const ARRAY_LIST= {
+const ARRAY_LIST = {
 	SIZE: WORD,
 	// ITEMS: ARRAY_ITEM[],
 };
@@ -41,14 +41,14 @@ const ARRAY_LIST_SIZE = ARRAY_LIST.SIZE + ARRAY_COUNT * ARRAY_ITEM_SIZE;
 		items: TArrayDataItem[];
 	};
 */
-const ARRAY_DATA= {
+const ARRAY_DATA = {
 	SIZE: WORD,
 	// ITEMS: ARRAY_DATA_ITEM[],
 };
 // sizeof TArrayData
-const ARRAY_DATA_SIZE = ARRAY_DATA.SIZE ; //+ ARRAY_COUNT * ARRAY_ITEM_SIZE;
+const ARRAY_DATA_SIZE = ARRAY_DATA.SIZE; //+ ARRAY_COUNT * ARRAY_ITEM_SIZE;
 
-const ARRAY_DATA_ITEM= {
+const ARRAY_DATA_ITEM = {
 	DIM_COUNT: BYTE,
 	// DIMS: WORD[DIM_COUNT]
 };
@@ -74,7 +74,7 @@ writeWord(arrayData, 0, 2);
 // 0000 : nn nn ; next free ptr
 // pppp : dd dd ; byte[ssss]
 //
-export function addArray(varType: number, dims: number[], fillValue= 0xFF) {
+export function addArray(varType: number, dims: number[], fillValue = 0xff) {
 	// TArrayList.count++
 	const count = readWord(arrayList, 0);
 	writeWord(arrayList, 0, count + 1);
@@ -95,11 +95,11 @@ export function addArray(varType: number, dims: number[], fillValue= 0xFF) {
 		}
 	}
 
-	const dataSizeInBytes= arrayItemsCount * itemSize;
-	const headerSizeInBytes= ARRAY_DATA_ITEM_SIZE + dims.length * ARRAY_DATA_DIM_SIZE;
-	const sizeInBytes= headerSizeInBytes + dataSizeInBytes;
+	const dataSizeInBytes = arrayItemsCount * itemSize;
+	const headerSizeInBytes = ARRAY_DATA_ITEM_SIZE + dims.length * ARRAY_DATA_DIM_SIZE;
+	const sizeInBytes = headerSizeInBytes + dataSizeInBytes;
 
-	const arrayPtr= ARRAY_LIST.SIZE + count * ARRAY_ITEM_SIZE;
+	const arrayPtr = ARRAY_LIST.SIZE + count * ARRAY_ITEM_SIZE;
 
 	// add new array bytes size into the ARRAY LIST
 	// TArrayList.items[count].size= sizeInBytes
@@ -110,7 +110,7 @@ export function addArray(varType: number, dims: number[], fillValue= 0xFF) {
 	writeWord(arrayData, 0, freePtr + sizeInBytes);
 
 	// add new array dimPtr into the ARRAY LIST
-	// TArrayList.items[count].dimPtr= sizeInBytes
+	// TArrayList.items[count].dimPtr= freePtr
 	writeWord(arrayList, arrayPtr + WORD, freePtr);
 
 	// initialise new array data with $FF
@@ -119,44 +119,60 @@ export function addArray(varType: number, dims: number[], fillValue= 0xFF) {
 	// write the DIMS
 	// dims count
 	writeByte(arrayData, freePtr, dims.length);
-	freePtr+= ARRAY_DATA_ITEM.DIM_COUNT;
+	freePtr += ARRAY_DATA_ITEM.DIM_COUNT;
 	// dims array
 	for (let idx = 1; idx <= dims.length; idx++) {
-		writeWord(arrayData, freePtr, dims[idx-1]);
-		freePtr+= idx*2;
+		writeWord(arrayData, freePtr, dims[idx - 1]);
+		freePtr += WORD;
 	}
 
 	// add new array dataPtr into the ARRAY LIST
 	// TArrayList.items[count].dataPtr= freePtr
 	writeWord(arrayList, arrayPtr + WORD + WORD, freePtr);
 
-
 	return count;
 }
 
 export function getArraySize(arrayIdx: number) {
-	const arrayPtr= ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
+	const arrayPtr = ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
 	return readWord(arrayList, arrayPtr);
 }
 
 export function getArrayDataPtr(arrayIdx: number) {
-	const arrayPtr= ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
+	const arrayPtr = ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
 	return readWord(arrayList, arrayPtr + WORD + WORD);
 }
 
 export function getArrayDimPtr(arrayIdx: number) {
-	const arrayPtr= ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
+	const arrayPtr = ARRAY_LIST.SIZE + arrayIdx * ARRAY_ITEM_SIZE;
 	return readWord(arrayList, arrayPtr + WORD);
 }
 
 export function getArrayDims(arrayIdx: number) {
 	const dimPtr = getArrayDimPtr(arrayIdx);
 	const dimCount = readByte(arrayData, dimPtr);
-	const dims= [];
-	for(let idx= 0; idx<dimCount; idx++) {
-		dims.push(readWord(arrayData, dimPtr+1+idx*2));
+	const dims = [];
+	for (let idx = 0; idx < dimCount; idx++) {
+		dims.push(readWord(arrayData, dimPtr + 1 + idx * 2));
 	}
 	return dims;
+}
+
+export function getArrayDimsCount(arrayIdx: number) {
+	const dimPtr = getArrayDimPtr(arrayIdx);
+	return readByte(arrayData, dimPtr);
+}
+
+export function computeItemIdx(arrayIdx: number, indices: number[]) {
+	if(indices.length === 1)
+		return indices[0];
+
+	const dims= getArrayDims(arrayIdx);
+	let offset= indices[0];
+	for(let idx= 1; idx < indices.length; idx++) {
+		offset+= indices[idx] * dims[idx-1];
+	}
+	return offset;
 }
 
 export function setArrayItem(varType: number, arrayIdx: number, idx: number, value: number) {
@@ -213,37 +229,37 @@ function writeWord(buffer: Uint8Array, idx: number, word: number) {
 	buffer[idx + 1] = (word >> 8) & 0xff;
 }
 
-export function dumpArray(arrayIdx: number) {
-	const addr = getArrayDataPtr(arrayIdx);
-	const size = getArraySize(arrayIdx);
-	console.log("idx", arrayIdx, "size", size);
-	console.log(hexdump(arrayData, addr, size));
-}
+// export function dumpArray(arrayIdx: number) {
+// 	const addr = getArrayDataPtr(arrayIdx);
+// 	const size = getArraySize(arrayIdx);
+// 	console.log("idx", arrayIdx, "size", size);
+// 	console.log(hexdump(arrayData, addr, size));
+// }
 
-export function dumpArrays() {
-	console.log("-- ARRAYS --");
+export function dumpArrays(out: TPrint= console.log) {
+	out("-- ARRAYS --\n");
 
 	const count = readWord(arrayList, 0);
-	// console.log("count:", count);
-	// console.log(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
+	// out("count:", count);
+	// out(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
 
-	console.log("- LIST");
+	out("- LIST\n");
 	for (let idx = 0; idx < count; idx++) {
 		const dataPtr = getArrayDataPtr(idx);
 		const arrDim = getArraySize(idx);
 		const dimPtr = getArrayDimPtr(idx);
-		const dims= getArrayDims(idx).join(",");
+		const dims = getArrayDims(idx).join(",");
 
-		console.log(`[${hexWord(idx)}]: DATA $${hexWord(dataPtr)} LEN $${hexWord(arrDim)} DIMS $${hexWord(dimPtr)} [${dims}]`);
+		out(`[${hexWord(idx)}]: DATA $${hexWord(dataPtr)} LEN $${hexWord(arrDim)} DIMS $${hexWord(dimPtr)} [${dims}]\n`);
 	}
 
-	console.log("- DATA");
-	// console.log(hexdump(arrayData, 0, 2, 16));
+	out("- DATA\n");
+	// out(hexdump(arrayData, 0, 2, 16));
 	const freeIdx = readWord(arrayData, 0);
-	console.log("size:", hexWord(freeIdx));
+	out("size:", hexWord(freeIdx), "\n");
 
 	for (let idx = 0; idx < count; idx++) {
-		console.log(hexdump(arrayData, getArrayDimPtr(idx), getArraySize(idx), 16));
+		out(hexdump(arrayData, getArrayDimPtr(idx), getArraySize(idx), 16), "\n");
 	}
 
 	// while(idx < count) {

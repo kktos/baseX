@@ -79,6 +79,7 @@ export function addVarNameIdx(nameIdx: number, level: number, varType: number, i
 	}
 
 	writeWord(0, count + slotCount);
+
 	return count;
 }
 
@@ -243,11 +244,13 @@ export function setVarType(idx: number, type: number) {
 	return writeVarByte(idx, FIELDS.TYPE, type | getVarFlags(idx));
 }
 export function setVarAsFunction(idx: number) {
-	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | VAR_FLAGS.FUNCTION);
+	const flags = getVarFlags(idx) | VAR_FLAGS.FUNCTION;
+	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | flags);
 }
 
 export function setVarAsArray(idx: number) {
-	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | VAR_FLAGS.ARRAY);
+	const flags = getVarFlags(idx) | VAR_FLAGS.ARRAY;
+	writeVarByte(idx, FIELDS.TYPE, getVarType(idx) | flags);
 }
 
 export function addIteratorVar(idx: number) {
@@ -289,12 +292,12 @@ export function findIteratorVar(varIdx: number) {
 	return -1;
 }
 
-export function dumpVars() {
+export function dumpVars(out: (...args: string[]) => void) {
 	const count = readWord(0);
 
-	term.green("\n----------- VARS\n");
-	term(`count: ${count}\n`);
-	term(hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE));
+	out("\n----------- VARS\n");
+	out(`count: ${count}\n`);
+	out(hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE), "\n");
 
 	// let idx = count - 1;
 	let idx = 0;
@@ -307,7 +310,7 @@ export function dumpVars() {
 
 		if (!typeFlags) {
 			// idx--;
-			console.log(String(idx).padStart(2, "0"), `T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)}`);
+			out(String(idx).padStart(2, "0"), `T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)}`, "\n");
 			idx++;
 			continue;
 		}
@@ -357,7 +360,7 @@ export function dumpVars() {
 
 		const valueStr = getValueString();
 
-		console.log(
+		out(
 			String(idx).padStart(2, "0"),
 			`T:${hexByte(typeFlags)} L:${hexByte(level)} N:${hexWord(nameIdx)} V:${hexWord(value)}`,
 			(level > 0 ? "L" : "G") + hexByte(level),
@@ -366,11 +369,12 @@ export function dumpVars() {
 			EnumToName(TYPES, type) + (isArray ? `[${arrayDims}]` : "") + (isFunction ? "()" : ""),
 			"=",
 			isDeclared ? "" : "undeclared!",
-			valueStr,
+			String(valueStr),
+			"\n"
 		);
 
 		// idx--;
 		idx++;
 	}
-	console.log("");
+	out("\n");
 }

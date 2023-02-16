@@ -39,25 +39,25 @@ function disasmVar() {
 	}
 }
 
-function disasLine() {
+function disasLine(out: (...args: string[]) => void) {
 	const cmd = readProgramByte();
 	const cmdIdx = Object.values(CMDS).findIndex((id) => id === cmd);
 	const cmdName = Object.keys(CMDS)[cmdIdx];
 
-	term(`${hexWord(addr)} : ${hexByte(cmd)}        ; `);
-	term.blue(cmdName);
-	term("\n");
+	out(`${hexWord(addr)} : ${hexByte(cmd)}        ; `);
+	out(cmdName);
+	out("\n");
 
 	switch (cmd) {
 		case CMDS.FUNCTION: {
 			const varIdx = readProgramWord();
 			const parmCount = readProgramByte();
-			dumpWord(varIdx, `${getVarName(varIdx)}()`);
-			dumpByte(parmCount, "parm count");
+			dumpWord(out, varIdx, `${getVarName(varIdx)}()`);
+			dumpByte(out, parmCount, "parm count");
 			for (let idx = 1; idx <= parmCount; idx++) {
 				const parm = readProgramWord();
 				const type = readProgramByte();
-				dumpWordByte(parm, type, `${idx}= ${getString(parm)}: ${EnumToName(TYPES, type)}`);
+				dumpWordByte(out, parm, type, `${idx}= ${getString(parm)}: ${EnumToName(TYPES, type)}`);
 			}
 			break;
 		}
@@ -69,53 +69,53 @@ function disasLine() {
 		}
 
 		case CMDS.RETURN: {
-			disasmExpr();
+			disasmExpr(out);
 			break;
 		}
 
 		case CMDS.GOTO: {
 			const lineIdx = readProgramWord();
 			const line = prgLines.buffer[lineIdx] | (prgLines.buffer[lineIdx + 1] << 8);
-			console.log(hexWord(addr), ":", hexWord(lineIdx), "  ;", line);
+			out(hexWord(addr), ":", hexWord(lineIdx), "  ;", String(line), "\n");
 			break;
 		}
 		case CMDS.IF: {
-			disasmExpr();
-			disasLine();
+			disasmExpr(out);
+			disasLine(out);
 			break;
 		}
 		case CMDS.FOR: {
 			const varIdx = readProgramWord();
 			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
-			console.log(hexWord(addr), ":", hexWord(varIdx), "     ; iterator", getVarName(nameIdx));
-			disasmExpr();
-			disasmExpr();
-			disasmExpr();
+			out(hexWord(addr), ":", hexWord(varIdx), "     ; iterator", getVarName(nameIdx), "\n");
+			disasmExpr(out);
+			disasmExpr(out);
+			disasmExpr(out);
 			break;
 		}
 		case CMDS.NEXT: {
 			const varIdx = readProgramWord();
 			const nameIdx = readVarWord(varIdx, FIELDS.NAME);
-			console.log(hexWord(addr), ":", hexWord(varIdx), "     ; iterator", getVarName(nameIdx));
+			out(hexWord(addr), ":", hexWord(varIdx), "     ; iterator", getVarName(nameIdx), "\n");
 			break;
 		}
 		case CMDS.PRINT: {
 			let sep;
 			while (sep !== TYPES.END) {
-				disasmExpr();
+				disasmExpr(out);
 				sep = readProgramByte();
 				switch (sep) {
 					case 0x09:
-						dumpByte(sep, "tab");
+						dumpByte(out, sep, "tab");
 						break;
 					case 0x0a:
-						dumpByte(sep, "no CR");
+						dumpByte(out, sep, "no CR");
 						break;
 					case 0x00:
-						dumpByte(sep, "END OF PRINT");
+						dumpByte(out, sep, "END OF PRINT");
 						break;
 				}
-				//dumpByte(readProgramByte(), "END");
+				//dumpByte(out, readProgramByte(), "END");
 			}
 			break;
 		}
@@ -126,15 +126,15 @@ function disasLine() {
 				const isArray = byte === (TYPES.var | VAR_FLAGS.ARRAY);
 
 				const varIdx = readProgramWord();
-				console.log(`${hexWord(addr)} : ${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`);
+				out(`${hexWord(addr)} : ${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`, "\n");
 
-				if (isArray) disasmExpr();
+				if (isArray) disasmExpr(out);
 				else readProgramByte();
 
 				byte = readProgramByte(true);
 				if (byte === TYPES.END) {
 					readProgramByte();
-					dumpByte(byte, "END OF READ");
+					dumpByte(out, byte, "END OF READ");
 				}
 			}
 			break;
@@ -142,37 +142,39 @@ function disasLine() {
 		case CMDS.DATA: {
 			let sep;
 			while (sep !== TYPES.END) {
-				disasmExpr();
+				disasmExpr(out);
 				sep = readProgramByte(true);
 				if (sep === TYPES.END) {
 					readProgramByte();
-					dumpByte(sep, "END OF DATA");
+					dumpByte(out, sep, "END OF DATA");
 				}
 			}
 			break;
 		}
 		case CMDS.LET: {
 			const varIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)} =`);
-			disasmExpr();
+			out(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)} =`, "\n");
+			disasmExpr(out);
 			break;
 		}
 		case CMDS.SET: {
 			const varIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)}[] =`);
-			disasmExpr();
-			disasmExpr();
+			const dimsCount = readProgramByte();
+			out(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)}[] =`, "\n");
+			dumpByte(out, dimsCount, "DIMS");
+			for (let idx = 0; idx < dimsCount; idx++) disasmExpr(out);
+			disasmExpr(out);
 			break;
 		}
 		case CMDS.DIM: {
 			const varIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)}[]`);
+			out(hexWord(addr), ":", hexWord(varIdx), "     ;", `${getVarName(varIdx)}[]`, "\n");
 			// disasmExpr();
 			break;
 		}
 		case CMDS.REM: {
 			const strIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(strIdx), "     ;", getString(strIdx));
+			out(hexWord(addr), ":", hexWord(strIdx), "     ;", getString(strIdx), "\n");
 			break;
 		}
 		default: {
@@ -181,38 +183,38 @@ function disasLine() {
 	}
 }
 
-function dumpByte(b1: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexByte(b1), cmt ? `       ; ${cmt}` : "");
+function dumpByte(out: (...args: string[]) => void, b1: number, cmt: string) {
+	out(hexWord(addr), ":", hexByte(b1), cmt ? `       ; ${cmt}` : "", "\n");
 }
 
-function dump2Bytes(b1: number, b2: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexByte(b1), hexByte(b2), cmt ? `    ;${cmt}` : "");
+function dump2Bytes(out: (...args: string[]) => void, b1: number, b2: number, cmt: string) {
+	out(hexWord(addr), ":", hexByte(b1), hexByte(b2), cmt ? `    ;${cmt}` : "", "\n");
 }
 
-function dumpWord(word: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexWord(word), cmt ? `     ; ${cmt}` : "");
+function dumpWord(out: (...args: string[]) => void, word: number, cmt: string) {
+	out(hexWord(addr), ":", hexWord(word), cmt ? `     ; ${cmt}` : "", "\n");
 }
 
-function dumpLong(long: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexLong(long), cmt ? ` ; ${cmt}` : "");
+function dumpLong(out: (...args: string[]) => void, long: number, cmt: string) {
+	out(hexWord(addr), ":", hexLong(long), cmt ? ` ; ${cmt}` : "", "\n");
 }
 
-function dumpByteWord(byte: number, word: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexByte(byte), hexWord(word), cmt ? `  ; ${cmt}` : "");
+function dumpByteWord(out: (...args: string[]) => void, byte: number, word: number, cmt: string) {
+	out(hexWord(addr), ":", hexByte(byte), hexWord(word), cmt ? `  ; ${cmt}` : "", "\n");
 }
 
-function dumpWordByte(word: number, byte: number, cmt: string) {
-	console.log(hexWord(addr), ":", hexWord(word), hexByte(byte), cmt ? `  ;${cmt}` : "");
+function dumpWordByte(out: (...args: string[]) => void, word: number, byte: number, cmt: string) {
+	out(hexWord(addr), ":", hexWord(word), hexByte(byte), cmt ? `  ;${cmt}` : "", "\n");
 }
 
-function disasmExpr() {
+function disasmExpr(out: (...args: string[]) => void) {
 	while (true) {
 		const memaddr = prgCursor;
 		const itemType = readProgramByte();
 		switch (itemType) {
 			case TYPES.fn: {
 				const fn = readProgramByte();
-				// dumpByte(itemType, " function");
+				// dumpByte(out, itemType, " function");
 				let name;
 				let nameIdx = Object.values(FNS).indexOf(fn);
 				if (nameIdx >= 0) name = `${Object.keys(FNS)[nameIdx]}()`;
@@ -221,23 +223,23 @@ function disasmExpr() {
 					name = Object.keys(OPERATORS)[nameIdx];
 				}
 				addr = memaddr;
-				dump2Bytes(itemType, fn, name);
+				dump2Bytes(out, itemType, fn, name);
 				if (fn === FNS.USER_DEF) {
 					const varIdx = readProgramWord();
-					dumpWord(varIdx, `fn: ${getVarName(varIdx)}`);
+					dumpWord(out, varIdx, `fn: ${getVarName(varIdx)}`);
 				}
 				break;
 			}
 			case TYPES.string: {
 				const strIdx = readProgramWord();
 				addr = memaddr;
-				dumpByteWord(itemType, strIdx, `str: "${getString(strIdx)}"`);
+				dumpByteWord(out, itemType, strIdx, `str: "${getString(strIdx)}"`);
 				break;
 			}
 			case TYPES.int: {
 				const num = readProgramWord();
 				addr = memaddr;
-				dumpByteWord(itemType, num, `int: ${num}`);
+				dumpByteWord(out, itemType, num, `int: ${num}`);
 				break;
 			}
 			case TYPES.float: {
@@ -247,40 +249,40 @@ function disasmExpr() {
 					view.setInt8(idx, readProgramByte());
 				}
 				addr = memaddr;
-				dumpByte(itemType, "float: ");
+				dumpByte(out, itemType, "float: ");
 				addr++;
-				dumpLong(view.getUint32(0), `${view.getFloat32(0)}`);
+				dumpLong(out, view.getUint32(0), `${view.getFloat32(0)}`);
 				break;
 			}
 			case TYPES.var: {
 				const v = readProgramWord();
 				addr = memaddr;
-				dumpByteWord(itemType, v, `var: ${getVarName(v)}`);
+				dumpByteWord(out, itemType, v, `var: ${getVarName(v)}`);
 				break;
 			}
 			case TYPES.local: {
 				const strIdx = readProgramWord();
 				addr = memaddr;
-				dumpByteWord(itemType, strIdx, `var: $${getString(strIdx)}`);
+				dumpByteWord(out, itemType, strIdx, `var: $${getString(strIdx)}`);
 				break;
 			}
 			case TYPES.CLOSE: {
 				addr = memaddr;
-				dumpByte(itemType, " )");
+				dumpByte(out, itemType, " )");
 				break;
 			}
 			case TYPES.END: {
 				addr = memaddr;
-				dumpByte(itemType, " END OF EXPR");
+				dumpByte(out, itemType, " END OF EXPR");
 				return;
 			}
 			default:
-				dumpByte(itemType, " ???");
+				dumpByte(out, itemType, " ???");
 		}
 	}
 }
 
-export function disasmPrg() {
+export function disasmPrg(out: (...args: string[]) => void) {
 	lineCursor = readBufferHeader(HEADER.START);
 
 	let counter = 100;
@@ -293,11 +295,11 @@ export function disasmPrg() {
 		prgCursor = readLineWord();
 		lineCursor = readLineWord();
 
-		console.log("----  ", lineNum, hexWord(prgCursor), hexWord(lineCursor));
+		out("----  ", String(lineNum), hexWord(prgCursor), hexWord(lineCursor), "\n");
 
-		if (prgCursor !== 0xffff) disasLine();
+		if (prgCursor !== 0xffff) disasLine(out);
 
-		console.log("");
+		out("\n");
 	}
 }
 

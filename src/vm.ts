@@ -1,4 +1,4 @@
-import { getArrayItem, setArrayItem } from "./arrays";
+import { computeItemIdx, getArrayItem, setArrayItem } from "./arrays";
 import { readBuffer, readBufferHeader, readBufferLine } from "./buffer";
 import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES, VAR_FLAGS } from "./defs";
 import { TProgram } from "./parser";
@@ -12,12 +12,10 @@ import {
 	getVarFlags,
 	getVarName,
 	getVarType,
-	isVarDeclared,
-	ITERATOR,
-	removeVarsForLevel,
+	isVarDeclared, ITERATOR, removeVarsForLevel,
 	setIteratorVar,
 	setVar,
-	setVarDeclared,
+	setVarDeclared
 } from "./vars";
 
 type TExpr = {
@@ -159,7 +157,6 @@ function execStatements() {
 			}
 
 			case CMDS.SET: {
-				// console.log("SET", prgCode);
 				err = assignArrayItem();
 				if (err) return err;
 				break;
@@ -333,18 +330,26 @@ function assignArrayItem() {
 
 	if (!isVarDeclared(varIdx)) return ERRORS.UNDECLARED_VARIABLE;
 
-	let err = evalExpr();
-	if (err) return err;
+	const dimsCount = readBuffer(program, SIZE.byte);
+	const dims= [];
+	let err;
 
-	if (expr.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
+	for(let idx= 0; idx < dimsCount; idx++) {
+		err = evalExpr();
+		if (err) return err;
 
-	const idx = expr.value;
+		if (expr.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
+
+		dims.push(expr.value);
+		// const idx = expr.value;
+	}
 
 	err = evalExpr();
 	if (err) return err;
 
 	const arrayIdx = getVar(varIdx);
-	err = setArrayItem(getVarType(varIdx), arrayIdx, idx, expr.value);
+	const offset= computeItemIdx(getVarType(varIdx), arrayIdx, dims);
+	err = setArrayItem(getVarType(varIdx), arrayIdx, offset, expr.value);
 	if (err) return err;
 
 	return 0;

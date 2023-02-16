@@ -79,7 +79,7 @@ function parseLine() {
 	let err: number = ERRORS.NONE;
 	switch (tok.value) {
 		case CMDS.LET:
-			parserLet();
+			err = parserLet();
 			break;
 		case CMDS.DIM:
 			err = parserDim();

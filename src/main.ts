@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { appendFileSync, closeSync, openSync, readFileSync } from "node:fs";
 import { terminal as term, Terminal } from "terminal-kit";
 import yargs from "yargs";
 import { dumpArrays } from "./arrays";
@@ -31,6 +31,7 @@ const args = yargs(process.argv.splice(2))
 		cmd = "run";
 	})
 	.options({
+		logFile: { string: true },
 		headers: { type: "boolean" },
 		vars: { type: "boolean" },
 		arrays: { type: "boolean" },
@@ -67,13 +68,9 @@ switch (cmd) {
 		// disasmPrg();
 		// list();
 
-		term().blue("\n*************** START *************\n");
-
 		const err = run(prg);
 
-		term().blue("\n**************** END **************\n\n");
-
-		if (err) console.error(`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)}`, prg.lineNum);
+		if (err) term.red(`ERR ${hexWord(err)} - ${EnumToName(ERRORS, err)} LINE ${prg.lineNum}\n`);
 
 		dump(prg);
 		break;
@@ -90,22 +87,46 @@ switch (cmd) {
 // }
 
 function dump(prg: TProgram) {
-	if (args.headers || args.all) dumpHeaders();
-	if (args.vars || args.all) dumpVars();
-	if (args.arrays || args.all) dumpArrays();
-	if (args.strings || args.all) dumpStrings();
-	if (args.code || args.all) {
-		console.log("");
-		console.log("----------- CODE");
-		console.log("");
-		if (prg.code) console.log(hexdump(prg.code.buffer, 0, prg.code.idx));
-		console.log("");
+	if(!args.logFile)
+		return;
+
+	let fd: number= -1;
+	try {
+		fd = openSync(args.logFile, "w");
+
+		const append= (...args: string[]) => {
+			appendFileSync(fd, args.join(" "), 'utf8');
+		};
+
+		if (args.headers || args.all) dumpHeaders(append);
+
+		if (args.vars || args.all) dumpVars(append);
+
+		if (args.arrays || args.all) dumpArrays(append);
+
+		if (args.strings || args.all) dumpStrings(append);
+
+		if (args.code || args.all) {
+			append("\n");
+			append("----------- CODE\n");
+			append("\n");
+			if (prg.code) append(hexdump(prg.code.buffer, 0, prg.code.idx));
+			append("\n");
+		}
+		if (args.lines || args.all) {
+			append("----------- LINES\n");
+			append("\n");
+			dumpLines();
+		}
+		if (args.disasm || args.all) disasmPrg(append);
+		if (args.list || args.all) list();
+
+
+	} catch (err) {
+	// Handle the error
+	} finally {
+		closeSync(fd);
 	}
-	if (args.lines || args.all) {
-		console.log("----------- LINES");
-		console.log("");
-		dumpLines();
-	}
-	if (args.disasm || args.all) disasmPrg();
-	if (args.list || args.all) list();
+
+
 }

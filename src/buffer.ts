@@ -10,12 +10,16 @@ function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 			p.buffer[p.idx++] = (value >> 8) & 0xff;
 			break;
 	}
+
+	return p.idx - 1;
 }
 
-export function writeBufferProgram(size: number, value: number) {
-	// console.log("writeBufferProgram", hexWord(prgCode.idx), size, size===1 ? hexByte(value):hexWord(value));
-
-	writeBuffer(prgCode, value, size);
+export function writeBufferProgram(size: number, value: number, idx = -1) {
+	const p = {
+		buffer: prgCode.buffer,
+		idx,
+	};
+	return writeBuffer(idx !== -1 ? p : prgCode, value, size);
 }
 
 export function writeBufferHeader(idx: number, val: number) {

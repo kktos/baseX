@@ -170,6 +170,7 @@ enum ERRORS {
 	ILLEGAL_STATEMENT = 0xdede,
 	NOT_ENOUGH_PARMS = 0xdeaf,
 	UNKNOWN_VARIABLE = 0xfede,
+	WRONG_DIM_COUNT = 0xf00d,
 	END_OF_LINE = 0xfeed,
 }
 
@@ -211,6 +212,8 @@ const source = {
 	buffer: "",
 	idx: 0,
 };
+
+export type TPrint = (...args: string[]) => void;
 
 export {
 	source,
