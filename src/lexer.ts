@@ -1,9 +1,11 @@
-import { CMDS, ERRORS, identiferChar0, identiferChars, numberChars, OPS, source, TOKEN_TYPES, TToken, ws } from "./defs";
+import { BINARY_CHARS, CMDS, ERRORS, HEXA_CHARS, identiferChar0, identiferChars, NUMBER_CHARS, OPS, source, TOKEN_TYPES, TToken, ws } from "./defs";
 
 export let lexeme: string;
 export let lexerErr: number;
 
 const ASCII_DOUBLE_QUOTE = 0x22;
+const ASCII_DOLLAR = 0x24;
+const ASCII_PERCENT = 0x25;
 const ASCII_DOT = 0x2e;
 const ASCII_0 = 0x30;
 const ASCII_9 = 0x39;
@@ -11,12 +13,15 @@ const ASCII_A = 0x41;
 const ASCII_Z = 0x5a;
 const ASCII_UNDERSCORE = 0x5f;
 const ASCII_UPPERCASE_MASK = 0xdf;
-const CHAR_KINDS = {
-	other: 0,
-	string: 1,
-	number: 2,
-	identifier: 3,
-};
+
+enum CHAR_KINDS {
+	other = 0,
+	string = 1,
+	number = 2,
+	identifier = 3,
+	hexa = 4,
+	binary = 5,
+}
 
 export function advance() {
 	// skip whitespaces
@@ -38,8 +43,8 @@ export function advance() {
 		return;
 	}
 
-	if (numberChars.includes(ch)) {
-		while (source.idx < source.buffer.length && numberChars.includes(source.buffer[source.idx])) source.idx++;
+	if (NUMBER_CHARS.includes(ch)) {
+		while (source.idx < source.buffer.length && NUMBER_CHARS.includes(source.buffer[source.idx])) source.idx++;
 		return;
 	}
 }
@@ -49,7 +54,14 @@ function getCharKind(ch: string) {
 
 	if (charCode === ASCII_DOUBLE_QUOTE) return CHAR_KINDS.string;
 
-	if (charCode === ASCII_DOT || (charCode >= ASCII_0 && charCode <= ASCII_9)) return CHAR_KINDS.number;
+	// float
+	if (charCode === ASCII_DOT) return CHAR_KINDS.number;
+	// hex
+	if (charCode === ASCII_DOLLAR) return CHAR_KINDS.hexa;
+	// binary
+	if (charCode === ASCII_PERCENT) return CHAR_KINDS.binary;
+
+	if (charCode >= ASCII_0 && charCode <= ASCII_9) return CHAR_KINDS.number;
 
 	charCode = ch.charCodeAt(0) & ASCII_UPPERCASE_MASK;
 
@@ -104,7 +116,7 @@ export function lexer(lookahead = false): TToken {
 
 		case CHAR_KINDS.number: {
 			let isFloat = ch === ".";
-			while (currIdx < source.buffer.length && numberChars.includes(source.buffer[currIdx])) {
+			while (currIdx < source.buffer.length && NUMBER_CHARS.includes(source.buffer[currIdx])) {
 				if (source.buffer[currIdx] === ".") isFloat = true;
 				currIdx++;
 			}
@@ -115,6 +127,23 @@ export function lexer(lookahead = false): TToken {
 			tokenType = isFloat ? TOKEN_TYPES.FLOAT : TOKEN_TYPES.INT;
 			break;
 		}
+
+		case CHAR_KINDS.hexa: {
+			while (currIdx < source.buffer.length && HEXA_CHARS.includes(source.buffer[currIdx])) {
+				currIdx++;
+			}
+			tokenType = TOKEN_TYPES.INT;
+			break;
+		}
+
+		case CHAR_KINDS.binary: {
+			while (currIdx < source.buffer.length && BINARY_CHARS.includes(source.buffer[currIdx])) {
+				currIdx++;
+			}
+			tokenType = TOKEN_TYPES.INT;
+			break;
+		}
+
 		case CHAR_KINDS.other: {
 			if (OPS.hasOwnProperty(ch)) {
 				token = OPS[ch];
