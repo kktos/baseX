@@ -1,6 +1,8 @@
 const identiferChar0 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 const identiferChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-const numberChars = ".0123456789";
+const NUMBER_CHARS = ".0123456789";
+const HEXA_CHARS = "ABCDEF0123456789";
+const BINARY_CHARS = "01";
 const ws = " \t";
 
 const FIELDS = {
@@ -152,15 +154,20 @@ const OPERATORS = {
 const FNS: Record<string, number> = {
 	USER_DEF: 0,
 	GET_ITEM: 10,
+	VARPTR: 20,
+
 	INT: 100,
 	RND: 101,
+
 	CHR$: 200,
+	HEX$: 201,
 };
 
 enum ERRORS {
 	NONE = 0,
 	SYNTAX_ERROR = 0xdead,
 	TYPE_MISMATCH = 0xcafe,
+	OUT_OF_BOUNDS = 0xb00b,
 	UNKNOWN_FUNCTION = 0xfeca,
 	UNDECLARED_VARIABLE = 0xcaca,
 	OVERFLOW = 0xfefe,
@@ -219,7 +226,9 @@ export {
 	source,
 	identiferChar0,
 	identiferChars,
-	numberChars,
+	NUMBER_CHARS,
+	HEXA_CHARS,
+	BINARY_CHARS,
 	ws,
 	headers,
 	prgLines,
