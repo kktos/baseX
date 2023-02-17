@@ -1,8 +1,8 @@
 import { writeBufferProgram } from "../buffer";
 import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES, VAR_FLAGS } from "../defs";
-import { parseExpr } from "../expr";
 import { isOperator, lexeme, lexer } from "../lexer";
 import { addVar, findVar } from "../vars";
+import { parseExpr } from "./expr.parser";
 
 export function parserRead() {
 	while (true) {

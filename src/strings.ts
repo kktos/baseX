@@ -103,7 +103,6 @@ export function createStringArray(length: number, isVarName = false) {
  */
 export function createString(length: number) {
 	createStringArray(length);
-
 	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT) - 1;
 	return strIdx;
 }

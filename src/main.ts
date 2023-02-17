@@ -10,7 +10,7 @@ import { parseSource, TProgram } from "./parser";
 import { dumpStrings } from "./strings";
 import { EnumToName, hexdump, hexWord } from "./utils";
 import { dumpVars } from "./vars";
-import { run } from "./vm";
+import { run } from "./vm/vm";
 
 declare global {
 	// rome-ignore lint/nursery/noVar: <explanation>
@@ -87,15 +87,14 @@ switch (cmd) {
 // }
 
 function dump(prg: TProgram) {
-	if(!args.logFile)
-		return;
+	if (!args.logFile) return;
 
-	let fd: number= -1;
+	let fd: number = -1;
 	try {
 		fd = openSync(args.logFile, "w");
 
-		const append= (...args: string[]) => {
-			appendFileSync(fd, args.join(" "), 'utf8');
+		const append = (...args: string[]) => {
+			appendFileSync(fd, args.join(" "), "utf8");
 		};
 
 		if (args.headers || args.all) dumpHeaders(append);
@@ -120,13 +119,9 @@ function dump(prg: TProgram) {
 		}
 		if (args.disasm || args.all) disasmPrg(append);
 		if (args.list || args.all) list();
-
-
 	} catch (err) {
-	// Handle the error
+		// Handle the error
 	} finally {
 		closeSync(fd);
 	}
-
-
 }

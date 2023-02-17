@@ -1,8 +1,8 @@
-import { writeBufferProgram } from "./buffer";
-import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TOKEN_TYPES, TToken, TYPES } from "./defs";
-import { advance, lexeme, lexer } from "./lexer";
-import { newString } from "./strings";
-import { addVar, findVar, isVarArray, isVarDeclared, setVarAsFunction } from "./vars";
+import { writeBufferProgram } from "../buffer";
+import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TOKEN_TYPES, TToken, TYPES } from "../defs";
+import { advance, isLookaheadOperator, isOperator, lexeme, lexer } from "../lexer";
+import { newString } from "../strings";
+import { addVar, findVar, isVarArray, isVarDeclared, setVarAsFunction } from "../vars";
 
 export function parseExpr(): number {
 	const err = parseCmp();
@@ -101,6 +101,12 @@ function parseProduct(): number {
 	}
 }
 
+function parseIntNumber(str: string) {
+	str = str.replace("$", "0x");
+	str = str.replace("%", "0b");
+	return parseInt(str);
+}
+
 function parseTerm(): number {
 	let tok = lexer(true);
 	if (tok.err) return tok.err;
@@ -108,7 +114,7 @@ function parseTerm(): number {
 	switch (tok.type) {
 		case TOKEN_TYPES.INT: {
 			advance();
-			const num = parseInt(lexeme);
+			const num = parseIntNumber(lexeme);
 			writeBufferProgram(SIZE.byte, TYPES.int);
 			writeBufferProgram(SIZE.word, num);
 			return 0;
@@ -146,16 +152,17 @@ function parseTerm(): number {
 	if (FNS.hasOwnProperty(lexeme.toUpperCase())) {
 		const fn = FNS[lexeme.toUpperCase()];
 
-		let tok = lexer();
-		if (tok.err) return tok.err;
-		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.LEFT_PARENT) return ERRORS.SYNTAX_ERROR;
+		if (!isOperator(TOKENS.LEFT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
-		const err = parseExpr();
-		if (err) return err;
+		while (true) {
+			const err = parseExpr();
+			if (err) return err;
 
-		tok = lexer();
-		if (tok.err) return tok.err;
-		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+			if (!isLookaheadOperator(TOKENS.COMMA)) break;
+			lexer();
+		}
+
+		if (!isOperator(TOKENS.RIGHT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
 		writeBufferProgram(SIZE.byte, TYPES.fn);
 		writeBufferProgram(SIZE.byte, fn);
@@ -182,17 +189,24 @@ function parseTerm(): number {
 	if (!isVarDeclared(varIdx) || isVarArray(varIdx)) {
 		lexer();
 
-		const err = parseExpr();
-		if (err) return err;
+		while (true) {
+			const err = parseExpr();
+			if (err) return err;
 
-		tok = lexer(true);
-		if (tok.err) return tok.err;
-		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.RIGHT_PARENT) return ERRORS.SYNTAX_ERROR;
+			if (!isLookaheadOperator(TOKENS.COMMA)) break;
+
+			// writeBufferProgram(SIZE.byte, TYPES.END);
+
+			lexer();
+		}
+
+		if (!isOperator(TOKENS.RIGHT_PARENT)) return ERRORS.SYNTAX_ERROR;
 
 		writeBufferProgram(SIZE.byte, TYPES.var);
 		writeBufferProgram(SIZE.word, varIdx);
 		writeBufferProgram(SIZE.byte, TYPES.fn);
 		writeBufferProgram(SIZE.byte, FNS.GET_ITEM);
+		writeBufferProgram(SIZE.byte, TYPES.END);
 		return 0;
 	}
 

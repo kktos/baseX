@@ -1,9 +1,9 @@
 import { getArrayDimsCount } from "../arrays";
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
-import { parseExpr } from "../expr";
 import { isLookaheadOperator, isOperator, lexeme, lexer } from "../lexer";
 import { addVar, findVar, getVar, setVarAsArray, setVarDeclared } from "../vars";
+import { parseExpr } from "./expr.parser";
 
 export function parserLet() {
 	let tok = lexer();

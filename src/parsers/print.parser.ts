@@ -1,7 +1,7 @@
 import { writeBufferProgram } from "../buffer";
 import { SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
-import { parseExpr } from "../expr";
 import { lexer } from "../lexer";
+import { parseExpr } from "./expr.parser";
 
 export function parserPrint() {
 	let tok;

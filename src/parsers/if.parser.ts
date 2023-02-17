@@ -1,7 +1,7 @@
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, prgCode, SIZE, TYPES } from "../defs";
-import { parseExpr } from "../expr";
 import { isCommand, isLookaheadCommand, lexer } from "../lexer";
+import { parseExpr } from "./expr.parser";
 import { parserGoto } from "./goto.parser";
 
 export function parserIf() {

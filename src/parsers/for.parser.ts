@@ -1,8 +1,8 @@
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, OPERATORS, SIZE, TOKEN_TYPES, TYPES } from "../defs";
-import { parseExpr } from "../expr";
 import { lexeme, lexer } from "../lexer";
 import { addIteratorVar, addVar, declareVar, findIteratorVar, findVar, getVarType } from "../vars";
+import { parseExpr } from "./expr.parser";
 
 export function parserFor() {
 	let tok = lexer();

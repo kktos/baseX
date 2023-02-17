@@ -15,11 +15,17 @@ function writeBuffer(p: TPrgBuffer, value: number, size: number) {
 }
 
 export function writeBufferProgram(size: number, value: number, idx = -1) {
-	const p = {
-		buffer: prgCode.buffer,
-		idx,
-	};
-	return writeBuffer(idx !== -1 ? p : prgCode, value, size);
+	const p =
+		idx === -1
+			? prgCode
+			: {
+					buffer: prgCode.buffer,
+					idx,
+			  };
+
+	// console.log(hexWord(p.idx), size === SIZE.byte ? hexByte(p.idx) : hexWord(p.idx));
+
+	return writeBuffer(p, value, size);
 }
 
 export function writeBufferHeader(idx: number, val: number) {

@@ -1,27 +1,21 @@
-import { computeItemIdx, getArrayItem, setArrayItem } from "./arrays";
-import { readBuffer, readBufferHeader, readBufferLine } from "./buffer";
-import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES, VAR_FLAGS } from "./defs";
-import { TProgram } from "./parser";
-import { concatStrings, copyString, createString, getString, newString, resetTempStrings, setTempStrings } from "./strings";
-import { hexByte, hexWord } from "./utils";
+import { computeItemIdx, getArrayItem, setArrayItem } from "../arrays";
+import { readBuffer, readBufferHeader, readBufferLine } from "../buffer";
+import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES, VAR_FLAGS } from "../defs";
+import { TProgram } from "../parser";
+import { concatStrings, copyString, createString, getString, newString, resetTempStrings, setTempStrings } from "../strings";
 import {
 	addVarNameIdx,
 	findVar,
 	getIteratorVar,
-	getVar,
-	getVarFlags,
-	getVarName,
-	getVarType,
+	getVar, getVarType,
 	isVarDeclared, ITERATOR, removeVarsForLevel,
 	setIteratorVar,
 	setVar,
 	setVarDeclared
-} from "./vars";
+} from "../vars";
+import { varptr } from "./functions/varptr.function";
+import { TContext, TExpr } from "./vm.def";
 
-type TExpr = {
-	type: number;
-	value: number;
-};
 let expr: TExpr = {
 	type: 0,
 	value: 0,
@@ -29,14 +23,6 @@ let expr: TExpr = {
 const program: TPrgBuffer = {
 	buffer: prgCode.buffer,
 	idx: 0,
-};
-
-type TContext = TProgram & {
-	lineIdx: number;
-	lineNum?: number;
-	level: number;
-	returnExpr: TExpr | null;
-	exprStack: TExpr[];
 };
 
 let context: TContext;
@@ -307,8 +293,6 @@ function assignVar(excluded: number[] = []) {
 	if (varType === TYPES.string) {
 		let destStrIdx = getVar(varIdx);
 
-		console.log(hexWord(destStrIdx), hexByte(getVarFlags(varIdx)), getVarName(varIdx));
-
 		if (destStrIdx === 0xffff) {
 			destStrIdx = createString(255);
 			setVar(varIdx, destStrIdx);
@@ -331,24 +315,24 @@ function assignArrayItem() {
 	if (!isVarDeclared(varIdx)) return ERRORS.UNDECLARED_VARIABLE;
 
 	const dimsCount = readBuffer(program, SIZE.byte);
-	const dims= [];
+	const dims = [];
 	let err;
 
-	for(let idx= 0; idx < dimsCount; idx++) {
+	for (let idx = 0; idx < dimsCount; idx++) {
 		err = evalExpr();
 		if (err) return err;
 
 		if (expr.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
 
 		dims.push(expr.value);
-		// const idx = expr.value;
 	}
 
 	err = evalExpr();
 	if (err) return err;
 
 	const arrayIdx = getVar(varIdx);
-	const offset= computeItemIdx(getVarType(varIdx), arrayIdx, dims);
+	const offset = computeItemIdx(arrayIdx, dims);
+	if (offset < 0) return ERRORS.OUT_OF_BOUNDS;
 	err = setArrayItem(getVarType(varIdx), arrayIdx, offset, expr.value);
 	if (err) return err;
 
@@ -358,6 +342,7 @@ function assignArrayItem() {
 function evalExpr(): number {
 	function getVarValue(varIdx: number) {
 		expr.type = getVarType(varIdx); // & 0x3F;
+		expr.varIdx = varIdx | 0x8000;
 		switch (expr.type) {
 			case TYPES.int: {
 				expr.value = getVar(varIdx);
@@ -429,14 +414,16 @@ function evalExpr(): number {
 				continue;
 			}
 		}
-		context.exprStack.push({ type: expr.type, value: expr.value });
+		context.exprStack.push({ ...expr });
 	}
 
 	if (context.exprStack.length) {
 		const e = context.exprStack.pop();
 		if (e) expr = e;
 	}
-	// console.log("\n---- expr", expr);
+
+	if (context.exprStack.length) return ERRORS.SYNTAX_ERROR;
+
 	return 0;
 }
 
@@ -487,22 +474,41 @@ function execFn(fnIdx: number) {
 		}
 		case FNS.CHR$: {
 			const op1 = context.exprStack.pop();
-			if (!op1) return ERRORS.TYPE_MISMATCH;
+			if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
 			op1.type = TYPES.string;
 			op1.value = newString(String.fromCharCode(op1.value));
 			context.exprStack.push(op1);
 			break;
 		}
+		case FNS.HEX$: {
+			const op1 = context.exprStack.pop();
+			// only int allowed
+			if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
+			// only one parm allowed
+			// if(context.exprStack.length) return ERRORS.SYNTAX_ERROR;
+			context.exprStack.push({ type: TYPES.string, value: newString(op1.value.toString(16)) });
+			break;
+		}
+		case FNS.VARPTR: {
+			const err= varptr(context);
+			if(err) return err;
+			break;
+		}
 		case FNS.GET_ITEM: {
 			const arr = context.exprStack.pop();
-			const op1 = context.exprStack.pop();
+			if (!arr) return ERRORS.TYPE_MISMATCH;
 
-			if (!(op1 && arr)) return ERRORS.TYPE_MISMATCH;
+			const dims: number[] = [];
 
-			if (op1.type !== TYPES.int && !(arr.type & VAR_FLAGS.ARRAY)) return ERRORS.TYPE_MISMATCH;
+			while (context.exprStack.length) {
+				const op1 = context.exprStack.pop();
+				if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
+				dims.unshift(op1.value);
+			}
 
-			arr.type = arr.type & VAR_FLAGS.TYPE;
-			arr.value = getArrayItem(arr.type, arr.value, op1.value);
+			const offset = computeItemIdx(arr.value, dims);
+			if (offset < 0) return ERRORS.OUT_OF_BOUNDS;
+			arr.value = getArrayItem(arr.type, arr.value, offset);
 			context.exprStack.push(arr);
 			break;
 		}

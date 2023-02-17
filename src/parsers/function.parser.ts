@@ -1,9 +1,9 @@
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
-import { parseExpr } from "../expr";
 import { isLookaheadOperator, lexeme, lexer } from "../lexer";
 import { newString } from "../strings";
 import { findVar, getTypeFromName, isVarDeclared, setVar, setVarAsFunction, setVarDeclared } from "../vars";
+import { parseExpr } from "./expr.parser";
 
 export function parserFunction(lineIdx: number) {
 	let tok = lexer();

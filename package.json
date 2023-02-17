@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "run:parse": "node ./dist/basex.js parse --vars --arrays --strings --lines --code --disasm ./examples/test_dim.bas",
+    "run:parse": "node ./dist/basex.js parse --vars --arrays --strings --lines --code --disasm --logFile out.log ./examples/test_dim.bas",
     "run:run": "node ./dist/basex.js run --disasm --vars --arrays --strings --logFile out.log ./examples/test_dim.bas",
     "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
     "format": "rome format .",
