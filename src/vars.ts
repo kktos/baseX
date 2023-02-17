@@ -61,6 +61,10 @@ function writeVarWord(idx: number, field: number, word: number) {
 	// console.log(hexdump(varsBuffer, 2, readWord(0)*VAR_RECORD_SIZE+2, 5));
 }
 
+export function getVarValueAddr(idx: number) {
+	return idx * VAR_RECORD_SIZE + 2 + FIELDS.VALUE;
+}
+
 export function addVarNameIdx(nameIdx: number, level: number, varType: number, isArray = false, isDeclared = false) {
 	const count = readWord(0);
 	let slotCount = 1;
@@ -370,7 +374,7 @@ export function dumpVars(out: (...args: string[]) => void) {
 			"=",
 			isDeclared ? "" : "undeclared!",
 			String(valueStr),
-			"\n"
+			"\n",
 		);
 
 		// idx--;
