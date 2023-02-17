@@ -164,13 +164,16 @@ export function getArrayDimsCount(arrayIdx: number) {
 }
 
 export function computeItemIdx(arrayIdx: number, indices: number[]) {
-	if(indices.length === 1)
-		return indices[0];
+	if (indices.length === 1) return indices[0];
 
-	const dims= getArrayDims(arrayIdx);
-	let offset= indices[0];
-	for(let idx= 1; idx < indices.length; idx++) {
-		offset+= indices[idx] * dims[idx-1];
+	const dims = getArrayDims(arrayIdx);
+
+	if (indices[0] >= dims[0]) return -1;
+
+	let offset = indices[0];
+	for (let idx = 1; idx < indices.length; idx++) {
+		if (indices[idx] >= dims[idx]) return -1;
+		offset += indices[idx] * dims[idx - 1];
 	}
 	return offset;
 }
@@ -236,7 +239,7 @@ function writeWord(buffer: Uint8Array, idx: number, word: number) {
 // 	console.log(hexdump(arrayData, addr, size));
 // }
 
-export function dumpArrays(out: TPrint= console.log) {
+export function dumpArrays(out: TPrint = console.log) {
 	out("-- ARRAYS --\n");
 
 	const count = readWord(arrayList, 0);
