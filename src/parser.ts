@@ -108,25 +108,25 @@ function parseLine() {
 			err = parserFor();
 			break;
 		case CMDS.NEXT:
-			parserNext();
+			err = parserNext();
 			break;
 
 		case CMDS.PRINT:
-			parserPrint();
+			err = parserPrint();
 			break;
 
 		case CMDS.IF:
-			parserIf();
+			err = parserIf();
 			break;
 		case CMDS.END:
 			parserEnd();
 			break;
 
 		case CMDS.FUNCTION:
-			parserFunction(lineIdx);
+			err = parserFunction(lineIdx);
 			break;
 		case CMDS.RETURN:
-			parserReturn();
+			err = parserReturn();
 			break;
 
 		default: {
