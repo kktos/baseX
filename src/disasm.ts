@@ -44,9 +44,7 @@ function disasLine(out: (...args: string[]) => void) {
 	const cmdIdx = Object.values(CMDS).findIndex((id) => id === cmd);
 	const cmdName = Object.keys(CMDS)[cmdIdx];
 
-	out(`${hexWord(addr)} : ${hexByte(cmd)}        ; `);
-	out(cmdName);
-	out("\n");
+	out(`${hexWord(addr)} : ${hexByte(cmd)}        ; ${cmdName}\n`);
 
 	switch (cmd) {
 		case CMDS.FUNCTION: {
@@ -123,13 +121,14 @@ function disasLine(out: (...args: string[]) => void) {
 			let byte;
 			while (byte !== TYPES.END) {
 				byte = readProgramByte();
-				const isArray = byte === (TYPES.var | VAR_FLAGS.ARRAY);
+				out(`${hexWord(addr)} : `);
 
+				const isArray = byte === (TYPES.var | VAR_FLAGS.ARRAY);
 				const varIdx = readProgramWord();
-				out(`${hexWord(addr)} : ${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`, "\n");
+				out(`${hexByte(byte)} ${hexWord(varIdx)}   ; ${getVarName(varIdx)}${isArray ? "[]" : ""}`, "\n");
 
 				if (isArray) disasmExpr(out);
-				else readProgramByte();
+				//else readProgramByte();
 
 				byte = readProgramByte(true);
 				if (byte === TYPES.END) {
@@ -140,15 +139,15 @@ function disasLine(out: (...args: string[]) => void) {
 			break;
 		}
 		case CMDS.DATA: {
-			let sep;
-			while (sep !== TYPES.END) {
-				disasmExpr(out);
-				sep = readProgramByte(true);
-				if (sep === TYPES.END) {
-					readProgramByte();
-					dumpByte(out, sep, "END OF DATA");
-				}
-			}
+			disasmExpr(out);
+			// let sep;
+			// while (sep !== TYPES.END) {
+			// 	sep = readProgramByte(true);
+			// 	if (sep === TYPES.END) {
+			// 		readProgramByte();
+			// 		dumpByte(out, sep, "END OF DATA");
+			// 	}
+			// }
 			break;
 		}
 		case CMDS.LET: {
@@ -301,12 +300,4 @@ export function disasmPrg(out: (...args: string[]) => void) {
 
 		out("\n");
 	}
-}
-
-export function dumpLines() {
-	lineCursor = 0;
-	while (lineCursor < prgLines.idx) {
-		console.log(hexWord(lineCursor), ":", "lineNum=", readLineWord().toString().padStart(4, "0"), "codePtr=", hexWord(readLineWord()), "nextLinePtr=", hexWord(readLineWord()));
-	}
-	console.log("");
 }

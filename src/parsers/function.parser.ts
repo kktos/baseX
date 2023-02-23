@@ -1,11 +1,12 @@
 import { writeBufferProgram } from "../buffer";
 import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { isLookaheadOperator, lexeme, lexer } from "../lexer";
+import { currentLineIdx } from "../parser";
 import { newString } from "../strings";
 import { findVar, getTypeFromName, isVarDeclared, setVar, setVarAsFunction, setVarDeclared } from "../vars";
 import { parseExpr } from "./expr.parser";
 
-export function parserFunction(lineIdx: number) {
+export function parserFunction() {
 	let tok = lexer();
 	if (tok.err) return tok.err;
 
@@ -15,7 +16,7 @@ export function parserFunction(lineIdx: number) {
 
 		setVarDeclared(varIdx);
 		setVarAsFunction(varIdx);
-		setVar(varIdx, lineIdx);
+		setVar(varIdx, currentLineIdx);
 
 		writeBufferProgram(SIZE.word, varIdx);
 

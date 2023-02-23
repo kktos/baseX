@@ -27,8 +27,11 @@ const BYTE = 1;
 const WORD = 2;
 
 const STRINGS_COUNT = 57;
-const STRING_BLOCK_SIZE = 255;
-const VARNAME_STRING_BLOCK_SIZE = 32 - 3;
+
+const STRING_BLOCK_HEADER_SIZE = 3;
+const STRING_BLOCK_SIZE = 255 - STRING_BLOCK_HEADER_SIZE;
+// const VARNAME_STRING_BLOCK_SIZE = 32 - STRING_BLOCK_HEADER_SIZE;
+
 const STRING_RECORD_SIZE = BYTE + WORD;
 const FIELD_COUNT_SIZE = WORD;
 const FIELD_NEXT_SIZE = 2;
@@ -83,7 +86,8 @@ export function createStringArray(length: number, isVarName = false) {
 	//
 
 	// add block array to store the string (small one if varname)
-	let arrayIdx = addArray(TYPES.byte, [isVarName ? VARNAME_STRING_BLOCK_SIZE : STRING_BLOCK_SIZE]) | (isVarName ? 0x8000 : 0x0000);
+	const strLen= isVarName ? length : STRING_BLOCK_SIZE;
+	let arrayIdx = addArray(TYPES.byte, [strLen]) | (isVarName ? 0x8000 : 0x0000);
 
 	// add the idx to the string array indices
 	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_ARRAY_IDX, arrayIdx & 0xff);

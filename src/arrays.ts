@@ -74,7 +74,7 @@ writeWord(arrayData, 0, 2);
 // 0000 : nn nn ; next free ptr
 // pppp : dd dd ; byte[ssss]
 //
-export function addArray(varType: number, dims: number[], fillValue = 0xff) {
+export function addArray(varType: number, dims: number[], fillValue = 0x00) {
 	// TArrayList.count++
 	const count = readWord(arrayList, 0);
 	writeWord(arrayList, 0, count + 1);

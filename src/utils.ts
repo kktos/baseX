@@ -45,9 +45,19 @@ export function hexWord(val: number) {
 }
 
 export function hexLong(val: number) {
-	// hexWord(long >> 16) + hexWord(long & 0xffff),
-
 	return val.toString(16).padStart(8, "0").toUpperCase();
+}
+
+export function hexNum(val: number) {
+	if(val === undefined)
+		return "UNDEF";
+
+	if(val<0x0100)
+		return hexByte(val);
+	if(val<0x1_0000)
+		return hexWord(val);
+
+	return hexLong(val);
 }
 
 export function EnumToName(en: Object, value: number) {

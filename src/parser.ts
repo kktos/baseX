@@ -1,5 +1,5 @@
 import { writeBufferHeader, writeBufferProgram } from "./buffer";
-import { CMDS, ERRORS, HEADER, headers, prgCode, prgLines, SIZE, source, TOKEN_TYPES, TPrgBuffer } from "./defs";
+import { CMDS, ERRORS, HEADER, headers, prgCode, prgLines, SIZE, source, TOKENS, TOKEN_TYPES, TPrgBuffer } from "./defs";
 import { lexer, lexerErr } from "./lexer";
 import { parserData } from "./parsers/data.parser";
 import { parserDim } from "./parsers/dim.parser";
@@ -11,7 +11,7 @@ import { parserLet } from "./parsers/let.parser";
 import { parseNum } from "./parsers/number.parser";
 import { parserPrint } from "./parsers/print.parser";
 import { parserRead } from "./parsers/read.parser";
-import { addPrgLine } from "./prglines";
+import { addPrgLine, addPrgStatement } from "./prglines";
 import { newString } from "./strings";
 
 export type TProgram = {
@@ -23,7 +23,8 @@ export type TProgram = {
 	lineNum?: number;
 };
 
-let currentLineNum: number;
+export let currentLineNum: number;
+export let currentLineIdx: number;
 
 export function parseSource(src: string): TProgram {
 	const lines = src.split("\n");
@@ -68,75 +69,93 @@ function parseLine() {
 	if (lexerErr === ERRORS.END_OF_LINE) return ERRORS.NONE;
 	if (isNaN(currentLineNum)) return ERRORS.SYNTAX_ERROR;
 
-	const tok = lexer();
+	let tok = lexer();
 	if (tok.err) return tok.err;
 
-	if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
+	currentLineIdx = addPrgLine(currentLineNum, prgCode.idx);
 
-	const lineIdx = addPrgLine(currentLineNum, prgCode.idx);
-	writeBufferProgram(SIZE.byte, tok.value);
+	while(true) {
 
-	let err: number = ERRORS.NONE;
-	switch (tok.value) {
-		case CMDS.LET:
-			err = parserLet();
-			break;
-		case CMDS.DIM:
-			err = parserDim();
-			break;
+		writeBufferProgram(SIZE.byte, tok.value);
 
-		case CMDS.READ:
-			err = parserRead();
-			break;
-		case CMDS.DATA:
-			err = parserData();
-			break;
+		if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
 
-		case CMDS.REM: {
-			const str = parseString();
-			const idx = newString(str);
-			writeBufferProgram(SIZE.word, idx);
-			break;
+		let err: number = ERRORS.NONE;
+		switch (tok.value) {
+			case CMDS.LET:
+				err = parserLet();
+				break;
+			case CMDS.DIM:
+				err = parserDim();
+				break;
+
+			case CMDS.READ:
+				err = parserRead();
+				break;
+			case CMDS.DATA:
+				err = parserData();
+				break;
+
+			case CMDS.REM: {
+				const str = parseString();
+				const idx = newString(str);
+				writeBufferProgram(SIZE.word, idx);
+				break;
+			}
+
+			case CMDS.GOTO:
+			case CMDS.GOSUB:
+				parserGoto();
+				break;
+
+			case CMDS.FOR:
+				err = parserFor();
+				break;
+			case CMDS.NEXT:
+				err = parserNext();
+				break;
+
+			case CMDS.PRINT:
+				err = parserPrint();
+				break;
+
+			case CMDS.IF:
+				err = parserIf();
+				break;
+			case CMDS.END:
+				parserEnd();
+				break;
+
+			case CMDS.FUNCTION:
+				err = parserFunction();
+				break;
+			case CMDS.RETURN:
+				err = parserReturn();
+				break;
+
+			default: {
+				return ERRORS.SYNTAX_ERROR;
+				// const err = parseParms();
+				// if (err) return err;
+			}
 		}
 
-		case CMDS.GOTO:
-		case CMDS.GOSUB:
-			parserGoto();
-			break;
+		if (err) return err;
 
-		case CMDS.FOR:
-			err = parserFor();
-			break;
-		case CMDS.NEXT:
-			err = parserNext();
-			break;
+		tok = lexer();
+		if (tok.err === ERRORS.END_OF_LINE) break;
+		if (tok.err) return tok.err;
 
-		case CMDS.PRINT:
-			err = parserPrint();
-			break;
+		if(tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.COLON) return ERRORS.SYNTAX_ERROR;
 
-		case CMDS.IF:
-			err = parserIf();
-			break;
-		case CMDS.END:
-			parserEnd();
-			break;
+		tok = lexer();
+		if (tok.err) return tok.err;
 
-		case CMDS.FUNCTION:
-			err = parserFunction(lineIdx);
-			break;
-		case CMDS.RETURN:
-			err = parserReturn();
-			break;
-
-		default: {
-			return ERRORS.SYNTAX_ERROR;
-			// const err = parseParms();
-			// if (err) return err;
-		}
+		currentLineIdx= addPrgStatement(currentLineIdx, prgCode.idx);
 	}
-	if (err) return err;
-	// console.log(currentLineNum, cmd);
+
+	// console.log(currentLineNum, lexer());
+
 	return 0;
 }
 

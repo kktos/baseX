@@ -3,10 +3,11 @@ import { terminal as term, Terminal } from "terminal-kit";
 import yargs from "yargs";
 import { dumpArrays } from "./arrays";
 import { ERRORS } from "./defs";
-import { disasmPrg, dumpLines } from "./disasm";
+import { disasmPrg } from "./disasm";
 import { dumpHeaders } from "./headers";
 import { list } from "./list";
 import { parseSource, TProgram } from "./parser";
+import { dumpLines } from "./prglines";
 import { dumpStrings } from "./strings";
 import { EnumToName, hexdump, hexWord } from "./utils";
 import { dumpVars } from "./vars";
@@ -115,7 +116,7 @@ function dump(prg: TProgram) {
 		if (args.lines || args.all) {
 			append("----------- LINES\n");
 			append("\n");
-			dumpLines();
+			dumpLines(append);
 		}
 		if (args.disasm || args.all) disasmPrg(append);
 		if (args.list || args.all) list();

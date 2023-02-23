@@ -168,6 +168,7 @@ enum ERRORS {
 	SYNTAX_ERROR = 0xdead,
 	TYPE_MISMATCH = 0xcafe,
 	OUT_OF_BOUNDS = 0xb00b,
+	OUT_OF_DATA = 0x0bb0,
 	UNKNOWN_FUNCTION = 0xfeca,
 	UNDECLARED_VARIABLE = 0xcaca,
 	OVERFLOW = 0xfefe,
@@ -181,7 +182,6 @@ enum ERRORS {
 	END_OF_LINE = 0xfeed,
 }
 
-const HEADERS_SIZE = 14;
 const HEADER = {
 	VERSION: 0,
 	START: 2,
@@ -189,8 +189,8 @@ const HEADER = {
 	STRINGS: 6,
 	LINES: 8,
 	ARRAYS: 10,
-	DATA: 10,
 };
+const HEADERS_SIZE = 12;
 
 export type TToken = {
 	type: number;
@@ -222,6 +222,14 @@ const source = {
 
 export type TPrint = (...args: string[]) => void;
 
+// READ / DATA
+const DATA = "%DATA%";
+const DATA_FIELDS= {
+	COUNT: 0,
+	PTR: 1,
+	ITEMS: 2
+}
+
 export {
 	source,
 	identiferChar0,
@@ -245,4 +253,6 @@ export {
 	HEADER,
 	FIELDS,
 	VAR_FLAGS,
+	DATA,
+	DATA_FIELDS
 };

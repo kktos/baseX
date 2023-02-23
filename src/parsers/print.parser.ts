@@ -1,5 +1,5 @@
 import { writeBufferProgram } from "../buffer";
-import { SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { lexer } from "../lexer";
 import { parseExpr } from "./expr.parser";
 
@@ -12,6 +12,11 @@ export function parserPrint() {
 		writeBufferProgram(SIZE.byte, TYPES.END);
 
 		tok = lexer();
+		if(tok.err)  {
+			if(tok.err !== ERRORS.END_OF_LINE) return tok.err;
+			sep= TYPES.END;
+		}
+		else
 		if (tok.type === TOKEN_TYPES.OPERATOR) {
 			switch (tok.value) {
 				case TOKENS.COMMA:
