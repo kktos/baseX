@@ -1,31 +1,20 @@
-import { computeItemIdx, getArrayItem, setArrayItem } from "../arrays";
-import { readBuffer, readBufferHeader, readBufferLine } from "../buffer";
-import { CMDS, ERRORS, FNS, HEADER, OPERATORS, prgCode, SIZE, TPrgBuffer, TYPES, VAR_FLAGS } from "../defs";
+import { readBufferHeader, readBufferLine, readBufferProgram } from "../buffer";
+import { CMDS, ERRORS, HEADER, SIZE, TYPES } from "../defs";
 import { TProgram } from "../parser";
-import { concatStrings, copyString, createString, getString, newString, resetTempStrings, setTempStrings } from "../strings";
+import { resetTempStrings, setTempStrings } from "../strings";
 import {
-	addVarNameIdx,
-	findVar,
-	getIteratorVar,
-	getVar, getVarType,
-	isVarDeclared, ITERATOR, removeVarsForLevel,
+	addVarNameIdx, getIteratorVar,
+	getVar, ITERATOR, removeVarsForLevel,
 	setIteratorVar,
-	setVar,
-	setVarDeclared
+	setVar
 } from "../vars";
-import { varptr } from "./functions/varptr.function";
-import { TContext, TExpr } from "./vm.def";
+import { evalExpr, expr } from "./expr.vm";
+import { assignArrayItem, assignVar } from "./statements/let.statement";
+import { printStatement } from "./statements/print.statement";
+import { readStatement } from "./statements/read.statement";
+import { program, TContext } from "./vm.def";
 
-let expr: TExpr = {
-	type: 0,
-	value: 0,
-};
-const program: TPrgBuffer = {
-	buffer: prgCode.buffer,
-	idx: 0,
-};
-
-let context: TContext;
+export let context: TContext;
 
 /*
 	headers: headers,
@@ -51,7 +40,7 @@ export function run(prg: TProgram) {
 	return err;
 }
 
-function execStatements() {
+export function execStatements() {
 	let lineNum;
 	let err;
 
@@ -66,7 +55,7 @@ function execStatements() {
 
 		if (program.idx === 0xffff) return ERRORS.LINE_MISSING;
 
-		const cmd = readBuffer(program, SIZE.byte);
+		const cmd = readBufferProgram(SIZE.byte);
 
 		// console.info("*** prg", Object.keys(CMDS)[Object.values(CMDS).indexOf(cmd)]);
 		// console.info("*** prg", hexWord(program.idx)," : ", hexByte(cmd));
@@ -74,24 +63,28 @@ function execStatements() {
 		switch (cmd) {
 			case CMDS.FUNCTION: {
 				// function could be run only on call (level>0)
-				if (!context.level) return ERRORS.ILLEGAL_STATEMENT;
+				if (!context.level) {
+					err= ERRORS.ILLEGAL_STATEMENT;
+					break;
+				}
 
 				// console.log("FUNCTION", context.exprStack);
 
 				// skip function var
-				readBuffer(program, SIZE.word);
+				readBufferProgram(SIZE.word);
 
-				let parmCount = readBuffer(program, SIZE.byte);
+				let parmCount = readBufferProgram(SIZE.byte);
 
 				// console.log("FUNCTION parmCount", parmCount);
 
 				if (context.exprStack.length < parmCount) {
-					return ERRORS.NOT_ENOUGH_PARMS;
+					err= ERRORS.NOT_ENOUGH_PARMS;
+					break;
 				}
 
 				while (parmCount--) {
-					const nameIdx = readBuffer(program, SIZE.word);
-					const varType = readBuffer(program, SIZE.byte);
+					const nameIdx = readBufferProgram(SIZE.word);
+					const varType = readBufferProgram(SIZE.byte);
 					const expr = context.exprStack.pop();
 					if (expr?.type !== varType) return ERRORS.TYPE_MISMATCH;
 					const varIdx = addVarNameIdx(nameIdx, context.level, varType, false, true);
@@ -103,10 +96,13 @@ function execStatements() {
 
 			case CMDS.RETURN: {
 				// return only from a function (level>0)
-				if (!context.level) return ERRORS.ILLEGAL_STATEMENT;
+				if (!context.level) {
+					err= ERRORS.ILLEGAL_STATEMENT;
+					break;
+				}
 
 				err = evalExpr();
-				if (err) return err;
+				if (err) break;
 
 				context.returnExpr = expr;
 
@@ -117,7 +113,10 @@ function execStatements() {
 
 			case CMDS.END_FUNCTION: {
 				// return only from a function (level>0)
-				if (!context.level) return ERRORS.ILLEGAL_STATEMENT;
+				if (!context.level) {
+					err= ERRORS.ILLEGAL_STATEMENT;
+					break;
+				}
 
 				context.returnExpr = { type: 0, value: 0 };
 				return;
@@ -125,92 +124,58 @@ function execStatements() {
 
 			case CMDS.DIM:
 			case CMDS.REM: {
-				readBuffer(program, SIZE.word);
+				readBufferProgram(SIZE.word);
 				break;
 			}
 
 			case CMDS.END: {
 				// allowed only on main prg, not in functions
-				if (context.level) return ERRORS.ILLEGAL_STATEMENT;
-
+				if (context.level) {
+					err= ERRORS.ILLEGAL_STATEMENT;
+					break;
+				}
 				return;
 			}
 
 			case CMDS.LET: {
 				err = assignVar();
-				if (err) return err;
 				break;
 			}
 
 			case CMDS.SET: {
 				err = assignArrayItem();
-				if (err) return err;
+				break;
+			}
+
+			case CMDS.DATA:
+				break;
+
+			case CMDS.READ: {
+				err = readStatement();
 				break;
 			}
 
 			case CMDS.IF: {
 				err = evalExpr();
-				if (err) return err;
+				if (err) break;
 
 				if (!expr.value) break;
 
-				readBuffer(program, SIZE.byte);
+				readBufferProgram(SIZE.byte);
 			}
 
 			case CMDS.GOTO: {
-				context.lineIdx = readBuffer(program, SIZE.word);
+				context.lineIdx = readBufferProgram(SIZE.word);
 				break;
 			}
 
 			case CMDS.PRINT: {
-				let sep;
-
-				while (sep !== TYPES.END) {
-					let outStr = "";
-					err = evalExpr();
-					if (err) return err;
-
-					switch (expr.type) {
-						case TYPES.string: {
-							outStr += getString(expr.value);
-							break;
-						}
-						case TYPES.byte:
-						case TYPES.int: {
-							outStr += expr.value;
-							break;
-						}
-						case TYPES.float: {
-							outStr += expr.value;
-							break;
-						}
-					}
-
-					term(outStr);
-
-					sep = readBuffer(program, SIZE.byte);
-					switch (sep) {
-						case 0x09: {
-							term("\t");
-							sep = readBuffer(program, SIZE.byte, true);
-							break;
-						}
-						case 0x0a: {
-							sep = readBuffer(program, SIZE.byte, true);
-							break;
-						}
-						default: {
-							term("\n");
-							break;
-						}
-					}
-				}
-
+				err= printStatement();
 				break;
 			}
 
 			case CMDS.FOR: {
-				const iteratorIdx = readBuffer(program, SIZE.word);
+				const iteratorIdx = readBufferProgram(SIZE.word);
 
 				err = evalExpr();
 				if (err) return err;
@@ -235,7 +200,7 @@ function execStatements() {
 			}
 
 			case CMDS.NEXT: {
-				const iteratorIdx = readBuffer(program, SIZE.word);
+				const iteratorIdx = readBufferProgram(SIZE.word);
 
 				const inc = getIteratorVar(iteratorIdx, ITERATOR.INC);
 				const max = getIteratorVar(iteratorIdx, ITERATOR.MAX);
@@ -253,9 +218,10 @@ function execStatements() {
 
 			default:
 				console.error("UNKNOWN_STATEMENT", cmd, lineNum, program.idx, context.lineIdx);
-
-				return ERRORS.UNKNOWN_STATEMENT;
+				err= ERRORS.UNKNOWN_STATEMENT;
 		}
+
+		if(err) return err;
 
 		resetTempStrings();
 	}
@@ -277,268 +243,4 @@ function cmpInt16(a: number, b: number, op: string) {
 			return a !== b;
 	}
 	return false;
-}
-
-function assignVar(excluded: number[] = []) {
-	const varIdx = readBuffer(program, SIZE.word);
-	const err = evalExpr();
-	if (err) return err;
-
-	if (excluded.includes(expr.type)) return ERRORS.TYPE_MISMATCH;
-
-	const varType = getVarType(varIdx);
-
-	if (varType !== (expr.type & VAR_FLAGS.TYPE)) return ERRORS.TYPE_MISMATCH;
-
-	if (varType === TYPES.string) {
-		let destStrIdx = getVar(varIdx);
-
-		if (destStrIdx === 0xffff) {
-			destStrIdx = createString(255);
-			setVar(varIdx, destStrIdx);
-		}
-
-		const err = copyString(destStrIdx, expr.value);
-		if (err) return err;
-	} else {
-		setVar(varIdx, expr.value);
-	}
-
-	setVarDeclared(varIdx);
-
-	return 0;
-}
-
-function assignArrayItem() {
-	const varIdx = readBuffer(program, SIZE.word);
-
-	if (!isVarDeclared(varIdx)) return ERRORS.UNDECLARED_VARIABLE;
-
-	const dimsCount = readBuffer(program, SIZE.byte);
-	const dims = [];
-	let err;
-
-	for (let idx = 0; idx < dimsCount; idx++) {
-		err = evalExpr();
-		if (err) return err;
-
-		if (expr.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
-
-		dims.push(expr.value);
-	}
-
-	err = evalExpr();
-	if (err) return err;
-
-	const arrayIdx = getVar(varIdx);
-	const offset = computeItemIdx(arrayIdx, dims);
-	if (offset < 0) return ERRORS.OUT_OF_BOUNDS;
-	err = setArrayItem(getVarType(varIdx), arrayIdx, offset, expr.value);
-	if (err) return err;
-
-	return 0;
-}
-
-function evalExpr(): number {
-	function getVarValue(varIdx: number) {
-		expr.type = getVarType(varIdx); // & 0x3F;
-		expr.varIdx = varIdx | 0x8000;
-		switch (expr.type) {
-			case TYPES.int: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			case TYPES.float: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			case TYPES.string: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			default: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-		}
-	}
-
-	while (true) {
-		const itemType = readBuffer(program, SIZE.byte);
-		if (itemType === TYPES.END) break;
-
-		switch (itemType) {
-			case TYPES.local: {
-				const nameIdx = readBuffer(program, SIZE.word);
-				const varIdx = findVar(getString(nameIdx), context.level);
-				if (varIdx < 0) return ERRORS.UNKNOWN_VARIABLE;
-				getVarValue(varIdx);
-				break;
-			}
-
-			case TYPES.var: {
-				const varIdx = readBuffer(program, SIZE.word);
-				getVarValue(varIdx);
-				break;
-			}
-
-			case TYPES.string: {
-				const strIdx = readBuffer(program, SIZE.word);
-				expr.type = TYPES.string;
-				expr.value = strIdx;
-				break;
-			}
-
-			case TYPES.int: {
-				const num = readBuffer(program, SIZE.word);
-				expr.type = TYPES.int;
-				expr.value = num;
-				break;
-			}
-
-			case TYPES.float: {
-				const buffer = new Uint8Array(4);
-				const view = new DataView(buffer.buffer);
-				for (let idx = 0; idx < 4; idx++) {
-					view.setUint8(idx, readBuffer(program, SIZE.byte));
-				}
-				expr.type = TYPES.float;
-				expr.value = view.getFloat32(0);
-				break;
-			}
-
-			case TYPES.fn: {
-				const fnIdx = readBuffer(program, SIZE.byte);
-				const err = execFn(fnIdx);
-				if (err) return err;
-				continue;
-			}
-		}
-		context.exprStack.push({ ...expr });
-	}
-
-	if (context.exprStack.length) {
-		const e = context.exprStack.pop();
-		if (e) expr = e;
-	}
-
-	if (context.exprStack.length) return ERRORS.SYNTAX_ERROR;
-
-	return 0;
-}
-
-function execFn(fnIdx: number) {
-	switch (fnIdx) {
-		case OPERATORS.ADD: {
-			const op1 = context.exprStack.pop();
-			const op2 = context.exprStack.pop();
-			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
-
-			const result = { type: 0, value: 0 };
-			// concat strings
-			if (op1.type === TYPES.string) {
-				if (op2.type !== TYPES.string) return ERRORS.TYPE_MISMATCH;
-				result.type = TYPES.string;
-				result.value = concatStrings(op2.value, op1.value);
-			} else {
-				result.type = op1.type;
-				result.value = op1.value + op2.value;
-			}
-
-			context.exprStack.push(result);
-			break;
-		}
-		case OPERATORS.SUB: {
-			const op1 = context.exprStack.pop();
-			const op2 = context.exprStack.pop();
-			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
-			context.exprStack.push({ type: op1.type, value: op2.value - op1.value });
-			break;
-		}
-		case OPERATORS.MULT: {
-			const op1 = context.exprStack.pop();
-			const op2 = context.exprStack.pop();
-			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
-			context.exprStack.push({ type: op1.type, value: op1.value * op2.value });
-			break;
-		}
-		case OPERATORS.GT: {
-			const op1 = context.exprStack.pop();
-			const op2 = context.exprStack.pop();
-			if (!(op1 && op2)) return ERRORS.TYPE_MISMATCH;
-			context.exprStack.push({
-				type: op1.type,
-				value: op2.value > op1.value ? 1 : 0,
-			});
-			break;
-		}
-		case FNS.CHR$: {
-			const op1 = context.exprStack.pop();
-			if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
-			op1.type = TYPES.string;
-			op1.value = newString(String.fromCharCode(op1.value));
-			context.exprStack.push(op1);
-			break;
-		}
-		case FNS.HEX$: {
-			const op1 = context.exprStack.pop();
-			// only int allowed
-			if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
-			// only one parm allowed
-			// if(context.exprStack.length) return ERRORS.SYNTAX_ERROR;
-			context.exprStack.push({ type: TYPES.string, value: newString(op1.value.toString(16)) });
-			break;
-		}
-		case FNS.VARPTR: {
-			const err= varptr(context);
-			if(err) return err;
-			break;
-		}
-		case FNS.GET_ITEM: {
-			const arr = context.exprStack.pop();
-			if (!arr) return ERRORS.TYPE_MISMATCH;
-
-			const dims: number[] = [];
-
-			while (context.exprStack.length) {
-				const op1 = context.exprStack.pop();
-				if (!op1 || op1.type !== TYPES.int) return ERRORS.TYPE_MISMATCH;
-				dims.unshift(op1.value);
-			}
-
-			const offset = computeItemIdx(arr.value, dims);
-			if (offset < 0) return ERRORS.OUT_OF_BOUNDS;
-			arr.value = getArrayItem(arr.type, arr.value, offset);
-			context.exprStack.push(arr);
-			break;
-		}
-		case FNS.USER_DEF: {
-			const varIdx = readBuffer(program, SIZE.word);
-
-			// const op1= context.exprStack.pop();
-
-			const lineIdx = context.lineIdx;
-			const prgIdx = program.idx;
-
-			context.level++;
-			context.lineIdx = getVar(varIdx);
-
-			const err = execStatements();
-			if (err) return err;
-
-			if (!context.returnExpr) return ERRORS.TYPE_MISMATCH;
-
-			context.level--;
-			program.idx = prgIdx;
-			context.lineIdx = lineIdx;
-
-			context.exprStack.push(context.returnExpr);
-
-			break;
-		}
-		default:
-			return ERRORS.UNKNOWN_FUNCTION;
-	}
-
-	return 0;
 }

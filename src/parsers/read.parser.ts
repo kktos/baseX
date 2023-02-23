@@ -18,7 +18,7 @@ export function parserRead() {
 			if (tok.err === ERRORS.END_OF_LINE) {
 				writeBufferProgram(SIZE.byte, TYPES.var);
 				writeBufferProgram(SIZE.word, varIdx);
-				writeBufferProgram(SIZE.byte, TYPES.END);
+				// writeBufferProgram(SIZE.byte, TYPES.END);
 				break;
 			}
 			return tok.err;
@@ -42,9 +42,10 @@ export function parserRead() {
 				if (tok.err === ERRORS.END_OF_LINE) break;
 				return tok.err;
 			}
-		} else {
-			writeBufferProgram(SIZE.byte, TYPES.END);
 		}
+		// else {
+		// 	writeBufferProgram(SIZE.byte, TYPES.END);
+		// }
 
 		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.COMMA) return ERRORS.SYNTAX_ERROR;
 	}

@@ -1,61 +1,67 @@
+import { addArray, getArrayItem, setArrayItem } from "../arrays";
 import { writeBufferProgram } from "../buffer";
-import { ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
-import { advance, lexeme, lexer } from "../lexer";
-import { newString } from "../strings";
+import { DATA, DATA_FIELDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { lexer } from "../lexer";
+import { currentLineIdx } from "../parser";
+import { declareArray, findVar, getVar, setVar } from "../vars";
+import { compileFloat, compileInteger, compileString } from "./expr/constant.parser";
 
 export function parserData(): ERRORS {
 	while (true) {
 		const err = parseItem();
 		if (err) return err;
-		writeBufferProgram(SIZE.byte, TYPES.END);
 
 		const tok = lexer();
 		if (tok.err) {
 			if (tok.err === ERRORS.END_OF_LINE) {
-				writeBufferProgram(SIZE.word, TYPES.END);
-				return ERRORS.NONE;
+				writeBufferProgram(SIZE.byte, TYPES.END);
+				break;
 			}
 			return tok.err;
 		}
 
 		if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.COMMA) return ERRORS.SYNTAX_ERROR;
 	}
+
+	let arrIdx: number;
+	let dataIdx= findVar(DATA);
+	if (dataIdx < 0) {
+		dataIdx = declareArray(DATA);
+		arrIdx = addArray(TYPES.int, [14]);
+		setVar(dataIdx, arrIdx);
+		// count= 0
+		setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT, 0);
+		// curPtr= 0
+		setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.PTR, 0xFFFF);
+	} else {
+		arrIdx= getVar(dataIdx);
+	}
+
+	// console.log("DATA",currentLineNum);
+
+	const count= getArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT);
+	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT, count+1);
+
+	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.ITEMS+count, currentLineIdx);
+
+	// console.log(hexWord(currentLineIdx), currentLineNum, count);
+
+	return ERRORS.NONE;
 }
 
 function parseItem(): ERRORS {
 	const tok = lexer(true);
 	if (tok.err) return tok.err;
 
-	switch (tok.type) {
-		case TOKEN_TYPES.INT: {
-			advance();
-			const num = parseInt(lexeme);
-			writeBufferProgram(SIZE.byte, TYPES.int);
-			writeBufferProgram(SIZE.word, num);
-			return ERRORS.NONE;
-		}
+	const compilers: Record<number, ()=>ERRORS>= {
+		[TOKEN_TYPES.INT]: compileInteger,
+		[TOKEN_TYPES.FLOAT]: compileFloat,
+		[TOKEN_TYPES.STRING]: compileString,
+	};
 
-		case TOKEN_TYPES.FLOAT: {
-			advance();
-			const num = parseFloat(lexeme);
-			const buffer = new Uint8Array(4);
-			const view = new DataView(buffer.buffer);
-			view.setFloat32(0, num);
-			writeBufferProgram(SIZE.byte, TYPES.float);
-			for (let idx = 0; idx < 4; idx++) {
-				writeBufferProgram(SIZE.byte, view.getUint8(idx));
-			}
-			return ERRORS.NONE;
-		}
+	if(!compilers.hasOwnProperty(tok.type))
+		return ERRORS.TYPE_MISMATCH;
 
-		case TOKEN_TYPES.STRING: {
-			advance();
-			writeBufferProgram(SIZE.byte, TYPES.string);
-			const idx = newString(lexeme.slice(1));
-			writeBufferProgram(SIZE.word, idx);
-			return ERRORS.NONE;
-		}
-	}
+	return compilers[tok.type]();
 
-	return ERRORS.TYPE_MISMATCH;
 }

@@ -1,3 +1,4 @@
+import { prgCode, TPrgBuffer } from "../defs";
 import { TProgram } from "../parser";
 
 export type TExpr = {
@@ -13,3 +14,9 @@ export type TContext = TProgram & {
 	returnExpr: TExpr | null;
 	exprStack: TExpr[];
 };
+
+export const program: TPrgBuffer = {
+	buffer: prgCode.buffer,
+	idx: 0,
+};
+

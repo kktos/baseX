@@ -97,8 +97,12 @@ export function addVar(name: string, level: number = 0, isArray = false, isDecla
 	return addVarNameIdx(nameIdx, level, varType, isArray, isDeclared);
 }
 
-export function declareVar(name: string, level: number, isArray = false) {
+export function declareVar(name: string, level: number = 0, isArray = false) {
 	return addVar(name, level, isArray, true);
+}
+
+export function declareArray(name: string, level: number = 0) {
+	return addVar(name, level, true, true);
 }
 
 export function removeVarsForLevel(level: number) {
@@ -159,6 +163,20 @@ export function setVar(idx: number, value: number) {
 	}
 
 	writeVarWord(idx, FIELDS.VALUE, value);
+}
+
+export function copyVar(idx: number, valueArray: Uint8Array, ptr: number) {
+	const varType = getVarType(idx);
+	if (varType === TYPES.float) {
+		for (let fidx = 0; fidx < 4; fidx++) {
+			writeVarByte(idx + 1, FIELDS.NAME + fidx, valueArray[ptr++]);
+		}
+		return ptr;
+	}
+
+	writeVarByte(idx, FIELDS.VALUE, valueArray[ptr++]);
+	writeVarByte(idx, FIELDS.VALUE+1, valueArray[ptr++]);
+	return ptr;
 }
 
 // export function copyVar(destIdx: number, srcIdx: number) {
