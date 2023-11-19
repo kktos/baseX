@@ -1,9 +1,11 @@
 const identiferChar0 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 const identiferChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+const DIGIT_CHARS = "0123456789";
 const NUMBER_CHARS = ".0123456789";
 const HEXA_CHARS = "ABCDEF0123456789";
 const BINARY_CHARS = "01";
 const ws = " \t";
+const DOLLARSIGN = "$";
 
 const FIELDS = {
 	TYPE: 0,
@@ -79,6 +81,9 @@ const CMDS: Record<string, number> = {
 
 	LIST: 0x1c,
 
+	RESTORE: 0x1d,
+	NEW: 0x1e,
+
 	// "(": 0x70,
 	// ")": 0x71,
 	// "$": 0x72,
@@ -102,7 +107,7 @@ const CMDS: Record<string, number> = {
 const OPS: Record<string, number> = {
 	"(": 0x70,
 	")": 0x71,
-	$: 0x72,
+	[DOLLARSIGN]: 0x72,
 	"=": 0x73,
 	",": 0x74,
 	";": 0x75,
@@ -131,7 +136,7 @@ enum TOKEN_TYPES {
 const TOKENS = {
 	LEFT_PARENT: OPS["("],
 	RIGHT_PARENT: OPS[")"],
-	DOLLAR: OPS["$"],
+	DOLLAR: OPS[DOLLARSIGN],
 	EQUAL: OPS["="],
 	COMMA: OPS[","],
 	SEMICOLON: OPS[";"],
@@ -168,7 +173,7 @@ enum ERRORS {
 	SYNTAX_ERROR = 0xdead,
 	TYPE_MISMATCH = 0xcafe,
 	OUT_OF_BOUNDS = 0xb00b,
-	OUT_OF_DATA = 0x0bb0,
+	OUT_OF_DATA = 0x00da,
 	UNKNOWN_FUNCTION = 0xfeca,
 	UNDECLARED_VARIABLE = 0xcaca,
 	OVERFLOW = 0xfefe,
@@ -183,14 +188,15 @@ enum ERRORS {
 }
 
 const HEADER = {
-	VERSION: 0,
-	START: 2,
-	VARS: 4,
-	STRINGS: 6,
-	LINES: 8,
-	ARRAYS: 10,
+	VERSION: 0x00,
+	LINES: 0x02,
+	VARS: 0x04,
+	ARRAYS: 0x06,
+	START: 0x08,
+	SIZE: 0x0a,
+	CODE: 0x0c,
 };
-const HEADERS_SIZE = 12;
+const HEADERS_SIZE = 0x0e;
 
 export type TToken = {
 	type: number;
@@ -204,16 +210,14 @@ export type TPrgBuffer = {
 };
 
 const prgCode: TPrgBuffer = {
-	buffer: new Uint8Array(255),
+	buffer: new Uint8Array(0),
 	idx: 0,
 };
 
 const prgLines: TPrgBuffer = {
-	buffer: new Uint8Array(255),
+	buffer: new Uint8Array(0),
 	idx: 0,
 };
-
-const headers = new Uint8Array(HEADERS_SIZE);
 
 const source = {
 	buffer: "",
@@ -223,22 +227,22 @@ const source = {
 export type TPrint = (...args: string[]) => void;
 
 // READ / DATA
-const DATA = "%DATA%";
-const DATA_FIELDS= {
+const DATA_SYSVAR = "%DATA%";
+const DATA_FIELDS = {
 	COUNT: 0,
 	PTR: 1,
-	ITEMS: 2
-}
+	ITEMS: 2,
+};
 
 export {
 	source,
 	identiferChar0,
 	identiferChars,
 	NUMBER_CHARS,
+	DIGIT_CHARS,
 	HEXA_CHARS,
 	BINARY_CHARS,
 	ws,
-	headers,
 	prgLines,
 	prgCode,
 	ERRORS,
@@ -251,8 +255,9 @@ export {
 	SIZE,
 	TYPES,
 	HEADER,
+	HEADERS_SIZE,
 	FIELDS,
 	VAR_FLAGS,
-	DATA,
-	DATA_FIELDS
+	DATA_SYSVAR,
+	DATA_FIELDS,
 };

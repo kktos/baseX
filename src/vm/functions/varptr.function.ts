@@ -7,15 +7,15 @@ export function varptr(context: TContext) {
 	const op1 = context.exprStack.pop();
 	// only int allowed
 	if (!op1?.varIdx) return ERRORS.TYPE_MISMATCH;
-	const varIdx= op1.varIdx & 0x7FFF;
+	const varIdx = op1.varIdx & 0x7fff;
 	// const type= getVarType(varIdx);
-	const flags= getVarFlags(varIdx);
+	const flags = getVarFlags(varIdx);
 
 	let addr;
-	if(flags & VAR_FLAGS.ARRAY) {
-		addr= getArrayDataPtr(op1.value);
+	if (flags & VAR_FLAGS.ARRAY) {
+		addr = getArrayDataPtr(op1.value);
 	} else {
-		addr= getVarValueAddr(varIdx);
+		addr = getVarValueAddr(varIdx);
 	}
 
 	context.exprStack.push({ type: TYPES.int, value: addr });

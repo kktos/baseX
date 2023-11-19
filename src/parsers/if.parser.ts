@@ -1,5 +1,5 @@
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, prgCode, SIZE, TYPES } from "../defs";
+import { CMDS, ERRORS, SIZE, TYPES, prgCode } from "../defs";
 import { isCommand, isLookaheadCommand, lexer } from "../lexer";
 import { parseExpr } from "./expr.parser";
 import { parserGoto } from "./goto.parser";

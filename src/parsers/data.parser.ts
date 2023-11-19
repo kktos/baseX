@@ -1,6 +1,6 @@
 import { addArray, getArrayItem, setArrayItem } from "../arrays";
 import { writeBufferProgram } from "../buffer";
-import { DATA, DATA_FIELDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { DATA_FIELDS, DATA_SYSVAR, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
 import { lexer } from "../lexer";
 import { currentLineIdx } from "../parser";
 import { declareArray, findVar, getVar, setVar } from "../vars";
@@ -24,25 +24,25 @@ export function parserData(): ERRORS {
 	}
 
 	let arrIdx: number;
-	let dataIdx= findVar(DATA);
+	let dataIdx = findVar(DATA_SYSVAR);
 	if (dataIdx < 0) {
-		dataIdx = declareArray(DATA);
+		dataIdx = declareArray(DATA_SYSVAR);
 		arrIdx = addArray(TYPES.int, [14]);
 		setVar(dataIdx, arrIdx);
 		// count= 0
 		setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT, 0);
 		// curPtr= 0
-		setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.PTR, 0xFFFF);
+		setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.PTR, 0xffff);
 	} else {
-		arrIdx= getVar(dataIdx);
+		arrIdx = getVar(dataIdx);
 	}
 
 	// console.log("DATA",currentLineNum);
 
-	const count= getArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT);
-	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT, count+1);
+	const count = getArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT);
+	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.COUNT, count + 1);
 
-	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.ITEMS+count, currentLineIdx);
+	setArrayItem(TYPES.int, arrIdx, DATA_FIELDS.ITEMS + count, currentLineIdx);
 
 	// console.log(hexWord(currentLineIdx), currentLineNum, count);
 
@@ -53,15 +53,14 @@ function parseItem(): ERRORS {
 	const tok = lexer(true);
 	if (tok.err) return tok.err;
 
-	const compilers: Record<number, ()=>ERRORS>= {
+	const compilers: Record<number, () => ERRORS> = {
 		[TOKEN_TYPES.INT]: compileInteger,
 		[TOKEN_TYPES.FLOAT]: compileFloat,
 		[TOKEN_TYPES.STRING]: compileString,
 	};
 
-	if(!compilers.hasOwnProperty(tok.type))
-		return ERRORS.TYPE_MISMATCH;
+	// if (!compilers.hasOwnProperty(tok.type)) return ERRORS.TYPE_MISMATCH;
+	if (!Object.hasOwn(compilers, tok.type)) return ERRORS.TYPE_MISMATCH;
 
 	return compilers[tok.type]();
-
 }

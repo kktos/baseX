@@ -1,4 +1,5 @@
-import { headers, prgCode, prgLines, SIZE, TPrgBuffer } from "./defs";
+import { SIZE, TPrgBuffer, prgCode, prgLines } from "./defs";
+import { headers } from "./headers";
 import { program } from "./vm/vm.def";
 
 function writeBuffer(p: TPrgBuffer, value: number, size: number) {
@@ -37,7 +38,7 @@ export function writeBufferHeader(idx: number, val: number) {
 	writeBuffer(p, val, SIZE.word);
 }
 
-export function writeBufferLine(val: number, idx: number = -1) {
+export function writeBufferLine(val: number, idx = -1) {
 	const p = {
 		buffer: prgLines.buffer,
 		idx,
@@ -83,19 +84,22 @@ export function readBufferHeader(idx: number) {
 	return readBuffer(p, SIZE.word);
 }
 
-export function readBufferProgram(size: number, idx: number= -1) {
-	const p = idx === -1 ? program : {
-		buffer: program.buffer,
-		idx,
-	};
+export function readBufferProgram(size: number, idx = -1) {
+	const p =
+		idx === -1
+			? program
+			: {
+					buffer: program.buffer,
+					idx,
+			  };
 
 	// const out= `readBufferProgram ${hexWord(p.idx)} ${EnumToName(SIZE, size)} `;
-	const value= readBuffer(p, size);
+	const value = readBuffer(p, size);
 	// console.log(out, "VALUE:", hexNum(value), "NEXT:", hexWord(p.idx));
 	return value;
 }
 
-export function peekBufferProgram(size: number, idx: number= -1) {
+export function peekBufferProgram(size: number, idx = -1) {
 	const p = {
 		buffer: program.buffer,
 		idx,

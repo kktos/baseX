@@ -1,5 +1,24 @@
-// const memory = new Uint8Array(0x10000);
+let memory: ArrayBuffer;
+let freePtr: number;
+
+export type THandle = {
+	addr: number;
+	mem: Uint8Array;
+};
+
+export function initMemory(lowMem: number) {
+	memory = new ArrayBuffer(0x10000);
+	freePtr = lowMem;
+}
 
 export function memAlloc(size: number) {
-	return new Uint8Array(size);
+	if (freePtr + size > memory.byteLength) return null;
+	const chunk = new Uint8Array(memory, freePtr, size);
+	const handle: THandle = { addr: freePtr, mem: chunk };
+	freePtr += size;
+	return handle;
+}
+
+export function himem() {
+	return freePtr;
 }

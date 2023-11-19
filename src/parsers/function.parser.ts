@@ -1,8 +1,8 @@
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { CMDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES, prgCode } from "../defs";
 import { isLookaheadOperator, lexeme, lexer } from "../lexer";
 import { currentLineIdx } from "../parser";
-import { newString } from "../strings";
+import { STRING_TYPE, newString } from "../strings";
 import { findVar, getTypeFromName, isVarDeclared, setVar, setVarAsFunction, setVarDeclared } from "../vars";
 import { parseExpr } from "./expr.parser";
 
@@ -34,7 +34,7 @@ export function parserFunction() {
 				tok = lexer();
 				if (tok.err) return tok.err;
 
-				const nameIdx = newString(lexeme, true);
+				const nameIdx = newString(lexeme, STRING_TYPE.VARNAME);
 				writeBufferProgram(SIZE.word, nameIdx);
 				parmCount++;
 

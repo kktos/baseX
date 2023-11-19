@@ -1,6 +1,9 @@
+import { initArrays } from "./arrays";
 import { writeBufferHeader, writeBufferProgram } from "./buffer";
-import { CMDS, ERRORS, HEADER, headers, prgCode, prgLines, SIZE, source, TOKENS, TOKEN_TYPES, TPrgBuffer } from "./defs";
+import { CMDS, ERRORS, HEADER, SIZE, TOKENS, TOKEN_TYPES, TPrgBuffer, TToken, prgCode, prgLines, source } from "./defs";
+import { initHeaders } from "./headers";
 import { lexer, lexerErr } from "./lexer";
+import { himem, initMemory, memAlloc } from "./memmgr";
 import { parserData } from "./parsers/data.parser";
 import { parserDim } from "./parsers/dim.parser";
 import { parserFor, parserNext } from "./parsers/for.parser";
@@ -11,8 +14,10 @@ import { parserLet } from "./parsers/let.parser";
 import { parseNum } from "./parsers/number.parser";
 import { parserPrint } from "./parsers/print.parser";
 import { parserRead } from "./parsers/read.parser";
-import { addPrgLine, addPrgStatement } from "./prglines";
-import { newString } from "./strings";
+import { parserRestore } from "./parsers/restore.parser";
+import { addPrgLine, addPrgStatement, setLineCodePtr } from "./prglines";
+import { initStrings, newString } from "./strings";
+import { initVars } from "./vars";
 
 export type TProgram = {
 	headers?: Uint8Array;
@@ -26,26 +31,45 @@ export type TProgram = {
 export let currentLineNum: number;
 export let currentLineIdx: number;
 
+export function initParser() {
+	initMemory(0x800);
+
+	initHeaders();
+
+	let memHandle = memAlloc(255);
+	if (!memHandle?.mem) throw new TypeError("OUT OF MEMORY");
+	prgLines.buffer = memHandle.mem;
+	writeBufferHeader(HEADER.LINES, memHandle.addr);
+
+	memHandle = memAlloc(255);
+	if (!memHandle?.mem) throw new TypeError("OUT OF MEMORY");
+	prgCode.buffer = memHandle.mem;
+	writeBufferHeader(HEADER.CODE, memHandle.addr);
+
+	let addr = initVars(50);
+	if (addr === null) throw new TypeError("OUT OF MEMORY");
+	writeBufferHeader(HEADER.VARS, addr);
+
+	addr = initArrays(20);
+	if (addr === null) throw new TypeError("OUT OF MEMORY");
+	writeBufferHeader(HEADER.ARRAYS, addr);
+
+	initStrings(57);
+
+	writeBufferHeader(HEADER.SIZE, himem());
+}
+
 export function parseSource(src: string): TProgram {
 	const lines = src.split("\n");
 
-	for (let idx = 0; idx < headers.length; idx++) headers[idx] = 0xff;
-
-	// version
-	writeBufferHeader(HEADER.VERSION, 0x0001);
-	// start source.buffer idx
-	// writeBufferHeader(HEADER.START, 0xFFFF);
+	initParser();
 
 	for (let idx = 0; idx < lines.length; idx++) {
 		source.idx = 0;
 		source.buffer = lines[idx];
 
-		// console.log(idx, lines[idx]);
-
 		const err = parseLine();
 		if (err) {
-			// console.error("ERR", hexWord(err), ` at ${currentLineNum} : <${source.buffer.slice(source.idx)}>`);
-			// dump(lines);
 			return {
 				err,
 				lineNum: currentLineNum,
@@ -54,109 +78,115 @@ export function parseSource(src: string): TProgram {
 		}
 	}
 
-	// clear screen
-	// process.stdout.write('\0o33c');
-
 	return {
-		headers: headers,
+		// headers: headers,
 		lines: prgLines,
 		code: prgCode,
 	};
 }
 
-function parseLine() {
+function addLine(codeIdx: number) {
+	if (currentLineIdx === -1) currentLineIdx = addPrgLine(currentLineNum, codeIdx);
+	else currentLineIdx = addPrgStatement(currentLineIdx, codeIdx);
+}
+
+export function parseLine() {
 	currentLineNum = parseNum();
+
 	if (lexerErr === ERRORS.END_OF_LINE) return ERRORS.NONE;
-	if (isNaN(currentLineNum)) return ERRORS.SYNTAX_ERROR;
+	if (Number.isNaN(currentLineNum)) return ERRORS.SYNTAX_ERROR;
 
-	let tok = lexer();
-	if (tok.err) return tok.err;
+	currentLineIdx = -1;
 
-	currentLineIdx = addPrgLine(currentLineNum, prgCode.idx);
+	while (true) {
+		const tok = lexer();
+		if (tok.err) return tok.err;
+		if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
 
-	while(true) {
+		addLine(0xffff);
+
+		const codeAddr = prgCode.idx;
 
 		writeBufferProgram(SIZE.byte, tok.value);
 
-		if (tok.type !== TOKEN_TYPES.COMMAND) return ERRORS.SYNTAX_ERROR;
+		const err = parseStatement(tok);
+		if (err && err !== ERRORS.END_OF_LINE) return err;
 
-		let err: number = ERRORS.NONE;
-		switch (tok.value) {
-			case CMDS.LET:
-				err = parserLet();
-				break;
-			case CMDS.DIM:
-				err = parserDim();
-				break;
+		setLineCodePtr(currentLineIdx, codeAddr);
 
-			case CMDS.READ:
-				err = parserRead();
-				break;
-			case CMDS.DATA:
-				err = parserData();
-				break;
-
-			case CMDS.REM: {
-				const str = parseString();
-				const idx = newString(str);
-				writeBufferProgram(SIZE.word, idx);
-				break;
-			}
-
-			case CMDS.GOTO:
-			case CMDS.GOSUB:
-				parserGoto();
-				break;
-
-			case CMDS.FOR:
-				err = parserFor();
-				break;
-			case CMDS.NEXT:
-				err = parserNext();
-				break;
-
-			case CMDS.PRINT:
-				err = parserPrint();
-				break;
-
-			case CMDS.IF:
-				err = parserIf();
-				break;
-			case CMDS.END:
-				parserEnd();
-				break;
-
-			case CMDS.FUNCTION:
-				err = parserFunction();
-				break;
-			case CMDS.RETURN:
-				err = parserReturn();
-				break;
-
-			default: {
-				return ERRORS.SYNTAX_ERROR;
-				// const err = parseParms();
-				// if (err) return err;
-			}
-		}
-
-		if (err) return err;
-
-		tok = lexer();
-		if (tok.err === ERRORS.END_OF_LINE) break;
-		if (tok.err) return tok.err;
-
-		if(tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.COLON) return ERRORS.SYNTAX_ERROR;
-
-		tok = lexer();
-		if (tok.err) return tok.err;
-
-		currentLineIdx= addPrgStatement(currentLineIdx, prgCode.idx);
+		if (err === ERRORS.END_OF_LINE) break;
 	}
 
-	// console.log(currentLineNum, lexer());
+	return ERRORS.NONE;
+}
 
-	return 0;
+function parseStatement(currtok: TToken) {
+	let tok = currtok;
+	let err = ERRORS.NONE;
+	switch (tok.value) {
+		case CMDS.REM: {
+			const str = parseString();
+			const idx = newString(str);
+			writeBufferProgram(SIZE.word, idx);
+			break;
+		}
+
+		case CMDS.NEW:
+			break;
+		case CMDS.LET:
+			err = parserLet();
+			break;
+		case CMDS.DIM:
+			err = parserDim();
+			break;
+		case CMDS.READ:
+			err = parserRead();
+			break;
+		case CMDS.DATA:
+			err = parserData();
+			break;
+		case CMDS.RESTORE:
+			err = parserRestore();
+			break;
+		case CMDS.GOTO:
+		case CMDS.GOSUB:
+			parserGoto();
+			break;
+		case CMDS.FOR:
+			err = parserFor();
+			break;
+		case CMDS.NEXT:
+			err = parserNext();
+			break;
+		case CMDS.PRINT:
+			err = parserPrint();
+			break;
+		case CMDS.IF:
+			err = parserIf();
+			break;
+		case CMDS.END:
+			parserEnd();
+			break;
+		case CMDS.FUNCTION:
+			err = parserFunction();
+			break;
+		case CMDS.RETURN:
+			err = parserReturn();
+			break;
+
+		default: {
+			return ERRORS.SYNTAX_ERROR;
+			// const err = parseParms();
+			// if (err) return err;
+		}
+	}
+	if (err) return err;
+
+	tok = lexer();
+	if (tok.err) return tok.err;
+	if (tok.type !== TOKEN_TYPES.OPERATOR || tok.value !== TOKENS.COLON) return ERRORS.SYNTAX_ERROR;
+
+	return err;
 }
 
 function parseString() {

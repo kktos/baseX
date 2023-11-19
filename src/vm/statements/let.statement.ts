@@ -2,14 +2,10 @@ import { computeItemIdx, setArrayItem } from "../../arrays";
 import { readBufferProgram } from "../../buffer";
 import { ERRORS, SIZE, TYPES, VAR_FLAGS } from "../../defs";
 import { copyString, createString } from "../../strings";
-import {
-	getVar, getVarType,
-	isVarDeclared, setVar,
-	setVarDeclared
-} from "../../vars";
+import { getVar, getVarType, isVarDeclared, setVar, setVarDeclared } from "../../vars";
 import { evalExpr, expr } from "../expr.vm";
 
-export function assignVar(excluded: number[] = []) {
+export function assignVar(excluded: number[] = []): ERRORS {
 	const varIdx = readBufferProgram(SIZE.word);
 	const err = evalExpr();
 	if (err) return err;
@@ -36,10 +32,10 @@ export function assignVar(excluded: number[] = []) {
 
 	setVarDeclared(varIdx);
 
-	return 0;
+	return ERRORS.NONE;
 }
 
-export function assignArrayItem() {
+export function assignArrayItem(): ERRORS {
 	const varIdx = readBufferProgram(SIZE.word);
 
 	if (!isVarDeclared(varIdx)) return ERRORS.UNDECLARED_VARIABLE;
@@ -66,5 +62,5 @@ export function assignArrayItem() {
 	err = setArrayItem(getVarType(varIdx), arrayIdx, offset, expr.value);
 	if (err) return err;
 
-	return 0;
+	return ERRORS.NONE;
 }

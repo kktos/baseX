@@ -1,11 +1,9 @@
 import { ERRORS, TPrint, TYPES } from "./defs";
 import { memAlloc } from "./memmgr";
-import { hexdump, hexWord } from "./utils";
+import { hexWord, hexdump } from "./utils";
 
 const WORD = 2;
 const BYTE = 1;
-
-const ARRAY_COUNT = 20;
 
 /*
 	type TArrayItem = {
@@ -33,7 +31,7 @@ const ARRAY_LIST = {
 	// ITEMS: ARRAY_ITEM[],
 };
 // sizeof TArrayList
-const ARRAY_LIST_SIZE = ARRAY_LIST.SIZE + ARRAY_COUNT * ARRAY_ITEM_SIZE;
+// const ARRAY_LIST_SIZE = ARRAY_LIST.SIZE + ARRAY_COUNT * ARRAY_ITEM_SIZE;
 
 /*
 	type TArrayData = {
@@ -46,7 +44,7 @@ const ARRAY_DATA = {
 	// ITEMS: ARRAY_DATA_ITEM[],
 };
 // sizeof TArrayData
-const ARRAY_DATA_SIZE = ARRAY_DATA.SIZE; //+ ARRAY_COUNT * ARRAY_ITEM_SIZE;
+// const ARRAY_DATA_SIZE = ARRAY_DATA.SIZE; //+ ARRAY_COUNT * ARRAY_ITEM_SIZE;
 
 const ARRAY_DATA_ITEM = {
 	DIM_COUNT: BYTE,
@@ -55,13 +53,27 @@ const ARRAY_DATA_ITEM = {
 const ARRAY_DATA_ITEM_SIZE = ARRAY_DATA_ITEM.DIM_COUNT;
 const ARRAY_DATA_DIM_SIZE = WORD;
 
-const arrayList = memAlloc(ARRAY_LIST_SIZE);
-const arrayData = memAlloc(ARRAY_DATA_SIZE + ARRAY_COUNT * 255);
+let arrayList: Uint8Array;
+let arrayData: Uint8Array;
 
-for (let idx = 0; idx < arrayList.length; idx++) arrayList[idx] = 0xff;
+export function initArrays(maxCount: number) {
+	let memHandle = memAlloc(ARRAY_DATA.SIZE + maxCount * 255);
+	if (!memHandle?.mem) return null;
 
-writeWord(arrayList, 0, 0);
-writeWord(arrayData, 0, 2);
+	arrayData = memHandle.mem;
+
+	memHandle = memAlloc(ARRAY_LIST.SIZE + maxCount * ARRAY_ITEM_SIZE);
+	if (!memHandle?.mem) return null;
+
+	arrayList = memHandle.mem;
+
+	for (let idx = 0; idx < arrayList.length; idx++) arrayList[idx] = 0xff;
+
+	writeWord(arrayList, 0, 0);
+	writeWord(arrayData, 0, 2);
+
+	return memHandle.addr;
+}
 
 //
 // ARRAY LIST
@@ -87,12 +99,19 @@ export function addArray(varType: number, dims: number[], fillValue = 0x00) {
 		arrayItemsCount *= dims[idx];
 	}
 
-	let itemSize = 2;
+	let itemSize: number;
 	switch (varType) {
-		case TYPES.byte: {
-			itemSize = 1;
+		case TYPES.int: {
+			itemSize = 2;
 			break;
 		}
+		case TYPES.float: {
+			itemSize = 4;
+			break;
+		}
+		default:
+			itemSize = 1;
+			break;
 	}
 
 	const dataSizeInBytes = arrayItemsCount * itemSize;
@@ -163,6 +182,24 @@ export function getArrayDimsCount(arrayIdx: number) {
 	return readByte(arrayData, dimPtr);
 }
 
+export function setArrayDim(arrayIdx: number, dimIdx: number, size: number) {
+	const dimPtr = getArrayDimPtr(arrayIdx);
+	const dimsCount = readByte(arrayData, dimPtr);
+
+	if (dimIdx >= dimsCount) return ERRORS.OUT_OF_BOUNDS;
+
+	writeWord(arrayData, dimPtr + ARRAY_DATA_ITEM.DIM_COUNT + dimIdx * 2, size);
+
+	return ERRORS.NONE;
+}
+
+export function getArrayDim(arrayIdx: number, dimIdx: number) {
+	const dimPtr = getArrayDimPtr(arrayIdx);
+	const dimsCount = readByte(arrayData, dimPtr);
+	if (dimIdx >= dimsCount) return ERRORS.OUT_OF_BOUNDS;
+	return readWord(arrayData, dimPtr + ARRAY_DATA_ITEM.DIM_COUNT + dimIdx * 2);
+}
+
 export function computeItemIdx(arrayIdx: number, indices: number[]) {
 	if (indices.length === 1) return indices[0];
 
@@ -194,8 +231,12 @@ export function setArrayItem(varType: number, arrayIdx: number, idx: number, val
 			writeByte(arrayData, addr, value);
 			break;
 		}
+		case TYPES.float: {
+			writeQuadBytes(arrayData, addr, value);
+			break;
+		}
 	}
-	return 0;
+	return ERRORS.NONE;
 }
 
 export function getArrayItem(varType: number, arrayIdx: number, idx: number) {
@@ -210,9 +251,47 @@ export function getArrayItem(varType: number, arrayIdx: number, idx: number) {
 			addr += idx;
 			return readByte(arrayData, addr);
 		}
+		case TYPES.float: {
+			addr += idx * 4;
+			const buffer = new Uint8Array(4);
+			const view = new DataView(buffer.buffer);
+			for (let idx = 0; idx < 4; idx++) {
+				view.setInt8(idx, readByte(arrayData, addr + idx));
+			}
+			return view.getFloat32(0);
+		}
 		default:
 			throw new TypeError("Unknown var type");
 	}
+}
+
+export function copyToArrayItem(varType: number, arrayIdx: number, idx: number, valueArray: Uint8Array, startAt: number) {
+	let addr = getArrayDataPtr(arrayIdx);
+	let ptr = startAt;
+
+	switch (varType) {
+		case TYPES.string:
+		case TYPES.int: {
+			addr += idx * 2;
+			writeByte(arrayData, addr, valueArray[ptr++]);
+			writeByte(arrayData, addr + 1, valueArray[ptr++]);
+			break;
+		}
+		case TYPES.byte: {
+			addr += idx;
+			writeByte(arrayData, addr, valueArray[ptr++]);
+			break;
+		}
+		case TYPES.float: {
+			addr += idx * 4;
+			for (let fidx = 0; fidx < 4; fidx++) {
+				writeByte(arrayData, addr + fidx, valueArray[ptr++]);
+			}
+			break;
+		}
+	}
+
+	return ptr;
 }
 
 function readByte(buffer: Uint8Array, idx: number) {
@@ -232,12 +311,16 @@ function writeWord(buffer: Uint8Array, idx: number, word: number) {
 	buffer[idx + 1] = (word >> 8) & 0xff;
 }
 
-// export function dumpArray(arrayIdx: number) {
-// 	const addr = getArrayDataPtr(arrayIdx);
-// 	const size = getArraySize(arrayIdx);
-// 	console.log("idx", arrayIdx, "size", size);
-// 	console.log(hexdump(arrayData, addr, size));
-// }
+function writeQuadBytes(buffer: Uint8Array, idx: number, long: number) {
+	writeByte(buffer, idx, long >> 24);
+	writeByte(buffer, idx + 1, long >> 16);
+	writeByte(buffer, idx + 2, long >> 8);
+	writeByte(buffer, idx + 3, long);
+}
+
+export function dumpArray(idx: number, out: TPrint = console.log) {
+	out(hexdump(arrayData, getArrayDimPtr(idx), getArraySize(idx), 16), "\n");
+}
 
 export function dumpArrays(out: TPrint = console.log) {
 	out("-- ARRAYS --\n");
@@ -246,7 +329,9 @@ export function dumpArrays(out: TPrint = console.log) {
 	// out("count:", count);
 	// out(hexdump(arrayList, 2, count * ARRAY_RECORD_SIZE + 2, 4));
 
-	out("- LIST\n");
+	if (!count) return;
+
+	out(`- LIST count:${count}\n`);
 	for (let idx = 0; idx < count; idx++) {
 		const dataPtr = getArrayDataPtr(idx);
 		const arrDim = getArraySize(idx);
@@ -256,12 +341,11 @@ export function dumpArrays(out: TPrint = console.log) {
 		out(`[${hexWord(idx)}]: DATA $${hexWord(dataPtr)} LEN $${hexWord(arrDim)} DIMS $${hexWord(dimPtr)} [${dims}]\n`);
 	}
 
-	out("- DATA\n");
-	// out(hexdump(arrayData, 0, 2, 16));
 	const freeIdx = readWord(arrayData, 0);
-	out("size:", hexWord(freeIdx), "\n");
+	out(`\n- DATA size:${hexWord(freeIdx)}\n`);
 
 	for (let idx = 0; idx < count; idx++) {
+		out(`[${hexWord(idx)}]\n`);
 		out(hexdump(arrayData, getArrayDimPtr(idx), getArraySize(idx), 16), "\n");
 	}
 

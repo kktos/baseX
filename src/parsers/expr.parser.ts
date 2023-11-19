@@ -1,7 +1,7 @@
 import { writeBufferProgram } from "../buffer";
 import { ERRORS, FNS, OPERATORS, SIZE, TOKENS, TOKEN_TYPES, TToken, TYPES } from "../defs";
 import { advance, isLookaheadOperator, isOperator, lexeme, lexer } from "../lexer";
-import { newString } from "../strings";
+import { STRING_TYPE, newString } from "../strings";
 import { addVar, findVar, isVarArray, isVarDeclared, setVarAsFunction } from "../vars";
 import { compileFloat, compileInteger, compileString } from "./expr/constant.parser";
 
@@ -127,7 +127,8 @@ function parseTerm(): number {
 
 	advance();
 
-	if (FNS.hasOwnProperty(lexeme.toUpperCase())) {
+	// if (FNS.hasOwnProperty(lexeme.toUpperCase())) {
+	if (Object.hasOwn(FNS, lexeme.toUpperCase())) {
 		const fn = FNS[lexeme.toUpperCase()];
 
 		if (!isOperator(TOKENS.LEFT_PARENT)) return ERRORS.SYNTAX_ERROR;
@@ -231,7 +232,7 @@ function parseTermOperator(tok: TToken) {
 			const tok = lexer();
 			if (tok.err) return tok.err;
 			if (tok.type !== TOKEN_TYPES.IDENTIFER) return ERRORS.SYNTAX_ERROR;
-			const nameIdx = newString(lexeme, true);
+			const nameIdx = newString(lexeme, STRING_TYPE.VARNAME);
 			writeBufferProgram(SIZE.byte, TYPES.local);
 			writeBufferProgram(SIZE.word, nameIdx);
 			return 0;

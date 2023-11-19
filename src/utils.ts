@@ -7,9 +7,9 @@ function _fillUp(value: string, count: number, fillWith: string) {
 
 const headers = "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F";
 
-export function hexdump(buffer: Uint8Array, offset: number, length: number, width = 16) {
-	offset = offset || 0;
-	length = length ?? buffer.length;
+export function hexdump(buffer: Uint8Array, from: number, len: number, width = 16) {
+	let offset = from || 0;
+	const length = len ?? buffer.length;
 
 	let out = `${_fillUp("Offset", 8, " ")}  ${headers.slice(0, width * 3)}\n`;
 	let row = "";
@@ -49,18 +49,15 @@ export function hexLong(val: number) {
 }
 
 export function hexNum(val: number) {
-	if(val === undefined)
-		return "UNDEF";
+	if (val === undefined) return "UNDEF";
 
-	if(val<0x0100)
-		return hexByte(val);
-	if(val<0x1_0000)
-		return hexWord(val);
+	if (val < 0x0100) return hexByte(val);
+	if (val < 0x1_0000) return hexWord(val);
 
 	return hexLong(val);
 }
 
-export function EnumToName(en: Object, value: number) {
+export function EnumToName(en: Record<string, unknown>, value: number) {
 	const idx = Object.values(en).indexOf(value);
 	return idx >= 0 ? Object.keys(en)[idx] : hexByte(value);
 }

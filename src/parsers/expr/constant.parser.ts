@@ -1,8 +1,7 @@
-
 import { writeBufferProgram } from "../../buffer";
 import { ERRORS, SIZE, TYPES } from "../../defs";
 import { advance, lexeme } from "../../lexer";
-import { newString } from "../../strings";
+import { STRING_TYPE, newString } from "../../strings";
 
 export function compileInteger() {
 	advance();
@@ -28,13 +27,11 @@ export function compileFloat() {
 export function compileString() {
 	advance();
 	writeBufferProgram(SIZE.byte, TYPES.string);
-	const idx = newString(lexeme.slice(1));
+	const idx = newString(lexeme.slice(1), STRING_TYPE.CONSTANT);
 	writeBufferProgram(SIZE.word, idx);
 	return ERRORS.NONE;
 }
 
-function parseIntNumber(str: string) {
-	str = str.replace("$", "0x");
-	str = str.replace("%", "0b");
-	return parseInt(str);
+export function parseIntNumber(str: string) {
+	return parseInt(str.replace("$", "0x").replace("%", "0b"));
 }

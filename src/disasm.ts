@@ -1,12 +1,12 @@
-import { readBufferHeader } from "./buffer";
-import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES, VAR_FLAGS } from "./defs";
+import { readBuffer, readBufferHeader } from "./buffer";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, SIZE, TPrgBuffer, TYPES, VAR_FLAGS, prgCode, prgLines } from "./defs";
 import { getString } from "./strings";
 import { EnumToName, hexByte, hexLong, hexWord } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
 
 let prgCursor = 0;
-let lineCursor = 0;
 let addr = 0;
+let pLines: TPrgBuffer;
 
 function readProgramByte(lookahead = false) {
 	addr = prgCursor;
@@ -18,22 +18,20 @@ function readProgramWord(lookahead = false) {
 	return prgCode.buffer[lookahead ? prgCursor : prgCursor++] | (prgCode.buffer[lookahead ? prgCursor + 1 : prgCursor++] << 8);
 }
 
-function readLineWord() {
-	return prgLines.buffer[lineCursor++] | (prgLines.buffer[lineCursor++] << 8);
-}
-
-function disasmVar() {
+function disasmVar(out: (...args: string[]) => void) {
 	const varType = readProgramByte();
-	console.log(hexWord(addr), ":", hexByte(varType), "  ;");
+
+	out("disasmVar", hexWord(addr), ":", hexByte(varType), "  ;");
+
 	switch (varType & VAR_FLAGS.TYPE) {
 		case TYPES.string: {
 			const strIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", getString(strIdx));
+			out(hexWord(addr), ":", hexWord(strIdx), "  ;", getString(strIdx));
 			break;
 		}
 		case TYPES.var: {
 			const strIdx = readProgramWord();
-			console.log(hexWord(addr), ":", hexWord(strIdx), "  ;", getVar(strIdx));
+			out(hexWord(addr), ":", hexWord(strIdx), "  ;", String(getVar(strIdx)));
 			break;
 		}
 	}
@@ -59,12 +57,11 @@ function disasLine(out: (...args: string[]) => void) {
 			}
 			break;
 		}
-		case CMDS.END: {
+
+		case CMDS.END_FUNCTION:
+		case CMDS.END:
+		case CMDS.NEW:
 			break;
-		}
-		case CMDS.END_FUNCTION: {
-			break;
-		}
 
 		case CMDS.RETURN: {
 			disasmExpr(out);
@@ -115,6 +112,11 @@ function disasLine(out: (...args: string[]) => void) {
 				}
 				//dumpByte(out, readProgramByte(), "END");
 			}
+			break;
+		}
+		case CMDS.RESTORE: {
+			const lineNum = readProgramWord();
+			out(hexWord(addr), ":", hexWord(lineNum), "     ;", `from ${lineNum === 0xffff ? "start" : lineNum}\n`);
 			break;
 		}
 		case CMDS.READ: {
@@ -177,7 +179,7 @@ function disasLine(out: (...args: string[]) => void) {
 			break;
 		}
 		default: {
-			disasmVar();
+			disasmVar(out);
 		}
 	}
 }
@@ -282,19 +284,22 @@ function disasmExpr(out: (...args: string[]) => void) {
 }
 
 export function disasmPrg(out: (...args: string[]) => void) {
-	lineCursor = readBufferHeader(HEADER.START);
+	pLines = {
+		buffer: prgLines.buffer,
+		idx: readBufferHeader(HEADER.START),
+	};
 
 	let counter = 100;
 
-	while (lineCursor !== 0xffff) {
+	while (pLines.idx !== 0xffff) {
 		counter--;
 		if (!counter) break;
 
-		const lineNum = readLineWord();
-		prgCursor = readLineWord();
-		lineCursor = readLineWord();
+		const lineNum = readBuffer(pLines, SIZE.word);
+		prgCursor = readBuffer(pLines, SIZE.word);
+		pLines.idx = readBuffer(pLines, SIZE.word);
 
-		out("----  ", String(lineNum), hexWord(prgCursor), hexWord(lineCursor), "\n");
+		out("----  ", String(lineNum), hexWord(prgCursor), hexWord(pLines.idx), "\n");
 
 		if (prgCursor !== 0xffff) disasLine(out);
 

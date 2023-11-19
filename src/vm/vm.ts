@@ -1,20 +1,18 @@
 import { readBufferHeader, readBufferLine, readBufferProgram } from "../buffer";
-import { CMDS, ERRORS, HEADER, SIZE, TYPES } from "../defs";
+import { CMDS, ERRORS, HEADER, SIZE, prgCode } from "../defs";
 import { TProgram } from "../parser";
 import { resetTempStrings, setTempStrings } from "../strings";
-import {
-	addVarNameIdx, getIteratorVar,
-	getVar, ITERATOR, removeVarsForLevel,
-	setIteratorVar,
-	setVar
-} from "../vars";
-import { evalExpr, expr } from "./expr.vm";
+import { forStatement } from "./statements/for.statement";
+import { functionStatement } from "./statements/function.statement";
+import { ifStatement } from "./statements/if.statement";
 import { assignArrayItem, assignVar } from "./statements/let.statement";
+import { newStatement } from "./statements/new.statement";
+import { nextStatement } from "./statements/next.statement";
 import { printStatement } from "./statements/print.statement";
 import { readStatement } from "./statements/read.statement";
-import { program, TContext } from "./vm.def";
-
-export let context: TContext;
+import { restoreStatement } from "./statements/restore.statement";
+import { returnStatement } from "./statements/return.statement";
+import { context, program } from "./vm.def";
 
 /*
 	headers: headers,
@@ -24,13 +22,21 @@ export let context: TContext;
 	vars: vars,
 */
 export function run(prg: TProgram) {
-	context = {
-		...prg,
-		lineIdx: readBufferHeader(HEADER.START),
-		level: 0,
-		returnExpr: null,
-		exprStack: [],
-	};
+	context.level = 0;
+	context.returnExpr = null;
+	context.exprStack = [];
+
+	context.code = prg.code;
+	context.headers = prg.headers;
+	context.lineNum = prg.lineNum;
+	context.lines = prg.lines;
+	context.src = prg.src;
+	context.err = prg.err;
+
+	context.lineIdx = readBufferHeader(HEADER.START);
+
+	program.buffer = prgCode.buffer;
+	program.idx = 0;
 
 	// setTempStrings(context.lineIdx);
 	setTempStrings();
@@ -40,9 +46,13 @@ export function run(prg: TProgram) {
 	return err;
 }
 
-export function execStatements() {
+// const CMDS_JUMP_TABLE= {
+// 	[CMDS.FUNCTION]: functionStatement
+// };
+
+export function execStatements(): ERRORS {
 	let lineNum;
-	let err;
+	let err = ERRORS.NONE;
 
 	while (context.lineIdx !== 0xffff) {
 		lineNum = readBufferLine(context.lineIdx);
@@ -61,179 +71,90 @@ export function execStatements() {
 		// console.info("*** prg", hexWord(program.idx)," : ", hexByte(cmd));
 
 		switch (cmd) {
-			case CMDS.FUNCTION: {
-				// function could be run only on call (level>0)
-				if (!context.level) {
-					err= ERRORS.ILLEGAL_STATEMENT;
-					break;
-				}
-
-				// console.log("FUNCTION", context.exprStack);
-
-				// skip function var
-				readBufferProgram(SIZE.word);
-
-				let parmCount = readBufferProgram(SIZE.byte);
-
-				// console.log("FUNCTION parmCount", parmCount);
-
-				if (context.exprStack.length < parmCount) {
-					err= ERRORS.NOT_ENOUGH_PARMS;
-					break;
-				}
-
-				while (parmCount--) {
-					const nameIdx = readBufferProgram(SIZE.word);
-					const varType = readBufferProgram(SIZE.byte);
-					const expr = context.exprStack.pop();
-					if (expr?.type !== varType) return ERRORS.TYPE_MISMATCH;
-					const varIdx = addVarNameIdx(nameIdx, context.level, varType, false, true);
-					setVar(varIdx, expr.value);
-				}
-
+			case CMDS.LET:
+				err = assignVar();
 				break;
-			}
+			case CMDS.SET:
+				err = assignArrayItem();
+				break;
+			case CMDS.DATA:
+				break;
+			case CMDS.READ:
+				err = readStatement();
+				break;
+			case CMDS.RESTORE:
+				err = restoreStatement();
+				break;
+			case CMDS.PRINT:
+				err = printStatement();
+				break;
+			case CMDS.FOR:
+				err = forStatement();
+				break;
+			case CMDS.NEXT:
+				err = nextStatement();
+				break;
+			case CMDS.DIM:
+			case CMDS.REM:
+				readBufferProgram(SIZE.word);
+				break;
+			case CMDS.FUNCTION:
+				err = functionStatement();
+				break;
+			case CMDS.IF:
+				err = ifStatement();
+				break;
+			case CMDS.GOTO:
+				context.lineIdx = readBufferProgram(SIZE.word);
+				break;
+			case CMDS.NEW:
+				err = newStatement();
+				break;
 
 			case CMDS.RETURN: {
-				// return only from a function (level>0)
-				if (!context.level) {
-					err= ERRORS.ILLEGAL_STATEMENT;
-					break;
-				}
-
-				err = evalExpr();
+				err = returnStatement();
 				if (err) break;
-
-				context.returnExpr = expr;
-
-				removeVarsForLevel(context.level);
-
-				return;
+				return ERRORS.NONE;
 			}
 
 			case CMDS.END_FUNCTION: {
 				// return only from a function (level>0)
 				if (!context.level) {
-					err= ERRORS.ILLEGAL_STATEMENT;
+					err = ERRORS.ILLEGAL_STATEMENT;
 					break;
 				}
 
 				context.returnExpr = { type: 0, value: 0 };
-				return;
-			}
-
-			case CMDS.DIM:
-			case CMDS.REM: {
-				readBufferProgram(SIZE.word);
-				break;
+				return ERRORS.NONE;
 			}
 
 			case CMDS.END: {
 				// allowed only on main prg, not in functions
 				if (context.level) {
-					err= ERRORS.ILLEGAL_STATEMENT;
+					err = ERRORS.ILLEGAL_STATEMENT;
 					break;
 				}
-				return;
-			}
-
-			case CMDS.LET: {
-				err = assignVar();
-				break;
-			}
-
-			case CMDS.SET: {
-				err = assignArrayItem();
-				break;
-			}
-
-			case CMDS.DATA:
-				break;
-
-			case CMDS.READ: {
-				err = readStatement();
-				break;
-			}
-
-			case CMDS.IF: {
-				err = evalExpr();
-				if (err) break;
-
-				if (!expr.value) break;
-
-				readBufferProgram(SIZE.byte);
-			}
-
-			case CMDS.GOTO: {
-				context.lineIdx = readBufferProgram(SIZE.word);
-				break;
-			}
-
-			case CMDS.PRINT: {
-				err= printStatement();
-				break;
-			}
-
-			case CMDS.FOR: {
-				const iteratorIdx = readBufferProgram(SIZE.word);
-
-				err = evalExpr();
-				if (err) return err;
-				if (expr.type === TYPES.string) return ERRORS.TYPE_MISMATCH;
-
-				const varIdx = getIteratorVar(iteratorIdx, ITERATOR.VAR);
-				setVar(varIdx, expr.value);
-
-				// upper bound
-				err = evalExpr();
-				if (err) return err;
-				setIteratorVar(iteratorIdx, ITERATOR.MAX, expr.value);
-
-				// step
-				err = evalExpr();
-				if (err) return err;
-				setIteratorVar(iteratorIdx, ITERATOR.INC, expr.value);
-
-				setIteratorVar(iteratorIdx, ITERATOR.PTR, context.lineIdx);
-
-				break;
-			}
-
-			case CMDS.NEXT: {
-				const iteratorIdx = readBufferProgram(SIZE.word);
-
-				const inc = getIteratorVar(iteratorIdx, ITERATOR.INC);
-				const max = getIteratorVar(iteratorIdx, ITERATOR.MAX);
-				const varIdx = getIteratorVar(iteratorIdx, ITERATOR.VAR);
-
-				const sum = addInt16(inc, getVar(varIdx));
-
-				if (cmpInt16(sum, max, "<=")) {
-					setVar(varIdx, sum);
-					context.lineIdx = getIteratorVar(iteratorIdx, ITERATOR.PTR);
-				}
-
-				break;
+				return ERRORS.NONE;
 			}
 
 			default:
 				console.error("UNKNOWN_STATEMENT", cmd, lineNum, program.idx, context.lineIdx);
-				err= ERRORS.UNKNOWN_STATEMENT;
+				err = ERRORS.UNKNOWN_STATEMENT;
 		}
 
-		if(err) return err;
+		if (err) return err;
 
 		resetTempStrings();
 	}
 
-	return 0;
+	return ERRORS.NONE;
 }
 
-function addInt16(a: number, b: number) {
+export function addInt16(a: number, b: number) {
 	return a + b;
 }
 
-function cmpInt16(a: number, b: number, op: string) {
+export function cmpInt16(a: number, b: number, op: string) {
 	switch (op) {
 		case "<=":
 			return a <= b;

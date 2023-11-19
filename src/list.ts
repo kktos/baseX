@@ -1,13 +1,13 @@
-import { getArraySize } from "./arrays";
+import { getArrayDims } from "./arrays";
 import { readBufferHeader } from "./buffer";
-import { CMDS, FIELDS, FNS, HEADER, OPERATORS, prgCode, prgLines, TYPES } from "./defs";
+import { CMDS, FIELDS, FNS, HEADER, OPERATORS, TYPES, VAR_FLAGS, prgCode, prgLines } from "./defs";
 import { getString } from "./strings";
 import { EnumToName } from "./utils";
 import { getVar, getVarName, readVarWord } from "./vars";
 
 let prgCursor = 0;
 let lineCursor = 0;
-let indentStr = " ";
+let indentStr = "";
 
 function readProgramByte(lookahead = false) {
 	return prgCode.buffer[lookahead ? prgCursor : prgCursor++];
@@ -38,7 +38,7 @@ function printVar() {
 	// }
 }
 
-function printExpr() {
+function printExpr(sep = " ") {
 	let out: string[] = [];
 
 	while (true) {
@@ -117,14 +117,14 @@ function printExpr() {
 				break;
 			}
 			case TYPES.END: {
-				return out.join(" ");
+				return out.join(sep);
 			}
 		}
 		// out += " ";
 	}
 }
 
-function printLine(lineNum: number) {
+function printLine(print: (...args: string[]) => void, lineNum: number) {
 	const cmd = readProgramByte();
 	const cmdIdx = Object.values(CMDS).findIndex((id) => id === cmd);
 	const cmdName = Object.keys(CMDS)[cmdIdx];
@@ -168,7 +168,7 @@ function printLine(lineNum: number) {
 		}
 		case CMDS.IF: {
 			out += printExpr();
-			printLine(lineNum);
+			printLine(print, lineNum);
 			break;
 		}
 		case CMDS.FOR: {
@@ -223,8 +223,9 @@ function printLine(lineNum: number) {
 		case CMDS.DIM: {
 			const varIdx = readProgramWord();
 			const arrayIdx = getVar(varIdx);
-			const arraySize = getArraySize(arrayIdx);
-			out += `${getVarName(varIdx)}[${arraySize}]`;
+			// const arraySize = getArraySize(arrayIdx);
+			const dims = getArrayDims(arrayIdx);
+			out += `${getVarName(varIdx)}(${dims.join(",")})`;
 			break;
 		}
 		case CMDS.REM: {
@@ -232,24 +233,66 @@ function printLine(lineNum: number) {
 			out += getString(strIdx);
 			break;
 		}
+
+		case CMDS.READ: {
+			let isFirst = true;
+			while (true) {
+				const varType = readProgramByte();
+				if (varType === TYPES.END) break;
+
+				const varIdx = readProgramWord();
+				if ((varType & VAR_FLAGS.TYPE) === TYPES.var) {
+					out += `${isFirst ? "" : ","}${getVarName(varIdx)}`;
+					isFirst = false;
+				}
+				if (varType & VAR_FLAGS.ARRAY) {
+					out += "(";
+					out += printExpr();
+					out += ")";
+				}
+			}
+			break;
+		}
+		case CMDS.DATA: {
+			out += printExpr(",");
+			break;
+		}
+		case CMDS.RESTORE: {
+			const lineNum = readProgramWord();
+			if (lineNum !== 0xffff) out += lineNum;
+			break;
+		}
 		default: {
 			printVar();
 		}
 	}
 
-	out = `${String(lineNum).padStart(3, " ")}${indentStr}${cmdName} ${out}`;
+	print(`${indentStr}${cmdName} ${out}`);
 
 	if (wannaIndent) indentStr = "    ";
-	return out;
+	// return out;
 }
 
 // export function list(fromLine = 0, toLine = 0) {
-export function list() {
+export function list(out: (...args: string[]) => void) {
 	lineCursor = readBufferHeader(HEADER.START);
+	let prevLineNum = -1;
 	while (lineCursor !== 0xffff) {
 		const lineNum = readLineWord();
 		prgCursor = readLineWord();
 		lineCursor = readLineWord();
-		if (prgCursor !== 0xffff) console.log(printLine(lineNum));
+
+		if (prevLineNum === lineNum) {
+			out(" : ");
+		} else {
+			out("\n");
+			out(`${String(lineNum).padStart(3, " ")} `);
+		}
+
+		printLine(out, lineNum);
+		prevLineNum = lineNum;
+
+		if (prgCursor === 0xffff) continue;
 	}
+	out("\n");
 }

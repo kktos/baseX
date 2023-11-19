@@ -1,4 +1,4 @@
-import { BINARY_CHARS, CMDS, ERRORS, HEXA_CHARS, identiferChar0, identiferChars, NUMBER_CHARS, OPS, source, TOKEN_TYPES, TToken, ws } from "./defs";
+import { BINARY_CHARS, CMDS, ERRORS, HEXA_CHARS, NUMBER_CHARS, OPS, TOKEN_TYPES, TToken, identiferChar0, identiferChars, source, ws } from "./defs";
 
 export let lexeme: string;
 export let lexerErr: number;
@@ -145,7 +145,8 @@ export function lexer(lookahead = false): TToken {
 		}
 
 		case CHAR_KINDS.other: {
-			if (OPS.hasOwnProperty(ch)) {
+			// if (OPS.hasOwnProperty(ch)) {
+			if (Object.hasOwn(OPS, ch)) {
 				token = OPS[ch];
 				tokenType = TOKEN_TYPES.OPERATOR;
 			} else {
@@ -163,9 +164,10 @@ export function lexer(lookahead = false): TToken {
 	}
 
 	if (tokenType === TOKEN_TYPES.IDENTIFER) {
-		const cmd = lexeme.toUpperCase();
-		if (CMDS.hasOwnProperty(cmd)) {
-			token = CMDS[cmd];
+		lexeme = lexeme.toUpperCase();
+		// if (CMDS.hasOwnProperty(lexeme)) {
+		if (Object.hasOwn(CMDS, lexeme)) {
+			token = CMDS[lexeme];
 			tokenType = TOKEN_TYPES.COMMAND;
 		}
 	}
@@ -185,6 +187,7 @@ export function lexer(lookahead = false): TToken {
 	// nextTest:
 	//
 
+	// console.log("lexer", { lexeme, type: tokenType ?? 0, value: token ?? 0, err: lexerErr });
 	return { type: tokenType ?? 0, value: token ?? 0, err: lexerErr };
 }
 

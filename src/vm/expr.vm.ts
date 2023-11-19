@@ -3,36 +3,39 @@ import { ERRORS, SIZE, TYPES } from "../defs";
 import { getString } from "../strings";
 import { findVar, getVar, getVarType } from "../vars";
 import { execFn } from "./fn.vm";
-import { context } from "./vm";
-import { TExpr } from "./vm.def";
+import { TExpr, context } from "./vm.def";
 
 export let expr: TExpr = {
 	type: 0,
 	value: 0,
 };
 
-export function evalExpr(): number {
+export function evalExpr(): ERRORS {
 	function getVarValue(varIdx: number) {
 		expr.type = getVarType(varIdx); // & 0x3F;
 		expr.varIdx = varIdx | 0x8000;
-		switch (expr.type) {
-			case TYPES.int: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			case TYPES.float: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			case TYPES.string: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-			default: {
-				expr.value = getVar(varIdx);
-				break;
-			}
-		}
+
+		expr.value = getVar(varIdx);
+
+		// if(isVarArray(varIdx)) return;
+		// switch (expr.type) {
+		// 	case TYPES.int: {
+		// 		expr.value = getVar(varIdx);
+		// 		break;
+		// 	}
+		// 	case TYPES.float: {
+		// 		expr.value = getVar(varIdx);
+		// 		break;
+		// 	}
+		// 	case TYPES.string: {
+		// 		expr.value = getVar(varIdx);
+		// 		break;
+		// 	}
+		// 	default: {
+		// 		expr.value = getVar(varIdx);
+		// 		break;
+		// 	}
+		// }
 	}
 
 	while (true) {
@@ -87,6 +90,8 @@ export function evalExpr(): number {
 			}
 		}
 		context.exprStack.push({ ...expr });
+
+		// console.log("-----", hexWord(program.idx), context.exprStack);
 	}
 
 	if (context.exprStack.length) {
@@ -96,5 +101,5 @@ export function evalExpr(): number {
 
 	if (context.exprStack.length) return ERRORS.SYNTAX_ERROR;
 
-	return 0;
+	return ERRORS.NONE;
 }

@@ -1,6 +1,6 @@
 import { getArrayDimsCount } from "../arrays";
 import { writeBufferProgram } from "../buffer";
-import { CMDS, ERRORS, prgCode, SIZE, TOKENS, TOKEN_TYPES, TYPES } from "../defs";
+import { CMDS, ERRORS, SIZE, TOKENS, TOKEN_TYPES, TYPES, prgCode } from "../defs";
 import { isLookaheadOperator, isOperator, lexeme, lexer } from "../lexer";
 import { addVar, findVar, getVar, setVarAsArray, setVarDeclared } from "../vars";
 import { parseExpr } from "./expr.parser";

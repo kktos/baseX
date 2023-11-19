@@ -4,10 +4,10 @@ import { ERRORS, FNS, OPERATORS, SIZE, TYPES } from "../defs";
 import { concatStrings, newString } from "../strings";
 import { getVar } from "../vars";
 import { varptr } from "./functions/varptr.function";
-import { context, execStatements } from "./vm";
-import { program } from "./vm.def";
+import { execStatements } from "./vm";
+import { context, program } from "./vm.def";
 
-export function execFn(fnIdx: number) {
+export function execFn(fnIdx: number): ERRORS {
 	switch (fnIdx) {
 		case OPERATORS.ADD: {
 			const op1 = context.exprStack.pop();
@@ -70,8 +70,8 @@ export function execFn(fnIdx: number) {
 			break;
 		}
 		case FNS.VARPTR: {
-			const err= varptr(context);
-			if(err) return err;
+			const err = varptr(context);
+			if (err) return err;
 			break;
 		}
 		case FNS.GET_ITEM: {
@@ -120,5 +120,5 @@ export function execFn(fnIdx: number) {
 			return ERRORS.UNKNOWN_FUNCTION;
 	}
 
-	return 0;
+	return ERRORS.NONE;
 }

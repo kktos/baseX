@@ -1,7 +1,8 @@
 import { getArrayDims } from "./arrays";
 import { FIELDS, TYPES, VAR_FLAGS } from "./defs";
-import { getString, newString } from "./strings";
-import { EnumToName, hexByte, hexdump, hexLong, hexWord } from "./utils";
+import { memAlloc } from "./memmgr";
+import { STRING_TYPE, getString, newString } from "./strings";
+import { EnumToName, hexByte, hexLong, hexWord, hexdump } from "./utils";
 
 // 2: namedIdx
 // 2: type
@@ -9,7 +10,7 @@ import { EnumToName, hexByte, hexdump, hexLong, hexWord } from "./utils";
 // x: float
 // x: iterator
 const VAR_RECORD_SIZE = 2 + 2 + 2;
-const varsBuffer = new Uint8Array(50 * VAR_RECORD_SIZE + 2);
+let varsBuffer: Uint8Array;
 
 export const ITERATOR = {
 	VAR: 2,
@@ -18,47 +19,16 @@ export const ITERATOR = {
 	PTR: 10,
 };
 
-// global._VARS = varsBuffer;
+export function initVars(varMaxCount: number) {
+	const memHandle = memAlloc(varMaxCount * VAR_RECORD_SIZE + 2);
+	if (!memHandle?.mem) return null;
 
-for (let idx = 0; idx < varsBuffer.length; idx++) varsBuffer[idx] = 0xff;
-writeWord(0, 0);
+	varsBuffer = memHandle.mem;
 
-function readWord(idx: number) {
-	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
-}
+	for (let idx = 0; idx < varsBuffer.length; idx++) varsBuffer[idx] = 0xff;
+	writeWord(0, 0);
 
-function writeWord(idx: number, word: number) {
-	varsBuffer[idx] = word & 0xff;
-	varsBuffer[idx + 1] = (word >> 8) & 0xff;
-}
-
-function readVarByte(idx: number, field: number) {
-	idx = idx * VAR_RECORD_SIZE + field + 2;
-	return varsBuffer[idx];
-}
-
-function writeVarByte(idx: number, field: number, byte: number) {
-	// console.log("writeVarByte", idx, EnumToName(FIELDS, field), byte);
-
-	idx = idx * VAR_RECORD_SIZE + field + 2;
-	varsBuffer[idx] = byte & 0xff;
-
-	// console.log(hexdump(varsBuffer, 2, readWord(0)*VAR_RECORD_SIZE+2, 5));
-}
-
-export function readVarWord(idx: number, field: number) {
-	idx = idx * VAR_RECORD_SIZE + field + 2;
-	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
-}
-
-function writeVarWord(idx: number, field: number, word: number) {
-	// console.log("writeVarWord", idx, EnumToName(FIELDS, field), word);
-
-	idx = idx * VAR_RECORD_SIZE + field + 2;
-	varsBuffer[idx] = word & 0xff;
-	varsBuffer[idx + 1] = (word >> 8) & 0xff;
-
-	// console.log(hexdump(varsBuffer, 2, readWord(0)*VAR_RECORD_SIZE+2, 5));
+	return memHandle.addr;
 }
 
 export function getVarValueAddr(idx: number) {
@@ -87,8 +57,8 @@ export function addVarNameIdx(nameIdx: number, level: number, varType: number, i
 	return count;
 }
 
-export function addVar(name: string, level: number = 0, isArray = false, isDeclared = false) {
-	const nameIdx = newString(name, true);
+export function addVar(name: string, level = 0, isArray = false, isDeclared = false) {
+	const nameIdx = newString(name, STRING_TYPE.VARNAME);
 
 	// console.log("addVar", name, hexWord(nameIdx));
 
@@ -97,11 +67,11 @@ export function addVar(name: string, level: number = 0, isArray = false, isDecla
 	return addVarNameIdx(nameIdx, level, varType, isArray, isDeclared);
 }
 
-export function declareVar(name: string, level: number = 0, isArray = false) {
+export function declareVar(name: string, level = 0, isArray = false) {
 	return addVar(name, level, isArray, true);
 }
 
-export function declareArray(name: string, level: number = 0) {
+export function declareArray(name: string, level = 0) {
 	return addVar(name, level, true, true);
 }
 
@@ -153,7 +123,14 @@ export function findVar(name: string, level = -1) {
 }
 
 export function setVar(idx: number, value: number) {
-	const varType = getVarType(idx);
+	const varInfo = readVarByte(idx, FIELDS.TYPE);
+
+	if (varInfo & VAR_FLAGS.ARRAY) {
+		writeVarWord(idx, FIELDS.VALUE, value);
+		return;
+	}
+
+	const varType = varInfo & VAR_FLAGS.TYPE;
 	if (varType === TYPES.float) {
 		const buffer = new Uint8Array(4);
 		const view = new DataView(buffer.buffer);
@@ -165,8 +142,9 @@ export function setVar(idx: number, value: number) {
 	writeVarWord(idx, FIELDS.VALUE, value);
 }
 
-export function copyVar(idx: number, valueArray: Uint8Array, ptr: number) {
+export function copyVar(idx: number, valueArray: Uint8Array, startAt: number) {
 	const varType = getVarType(idx);
+	let ptr = startAt;
 	if (varType === TYPES.float) {
 		for (let fidx = 0; fidx < 4; fidx++) {
 			writeVarByte(idx + 1, FIELDS.NAME + fidx, valueArray[ptr++]);
@@ -175,7 +153,7 @@ export function copyVar(idx: number, valueArray: Uint8Array, ptr: number) {
 	}
 
 	writeVarByte(idx, FIELDS.VALUE, valueArray[ptr++]);
-	writeVarByte(idx, FIELDS.VALUE+1, valueArray[ptr++]);
+	writeVarByte(idx, FIELDS.VALUE + 1, valueArray[ptr++]);
 	return ptr;
 }
 
@@ -194,7 +172,14 @@ export function copyVar(idx: number, valueArray: Uint8Array, ptr: number) {
 // }
 
 export function getVar(idx: number) {
-	const varType = getVarType(idx);
+	const varInfo = readVarByte(idx, FIELDS.TYPE);
+
+	if (varInfo & VAR_FLAGS.ARRAY) {
+		return readVarWord(idx, FIELDS.VALUE);
+	}
+
+	const varType = varInfo & VAR_FLAGS.TYPE;
+
 	if (varType === TYPES.float) {
 		const buffer = new Uint8Array(4);
 		const view = new DataView(buffer.buffer);
@@ -319,6 +304,9 @@ export function dumpVars(out: (...args: string[]) => void) {
 
 	out("\n----------- VARS\n");
 	out(`count: ${count}\n`);
+
+	if (!count) return;
+
 	out(hexdump(varsBuffer, 2, count * VAR_RECORD_SIZE + 2, VAR_RECORD_SIZE), "\n");
 
 	// let idx = count - 1;
@@ -399,4 +387,34 @@ export function dumpVars(out: (...args: string[]) => void) {
 		idx++;
 	}
 	out("\n");
+}
+
+function readWord(idx: number) {
+	return varsBuffer[idx] | (varsBuffer[idx + 1] << 8);
+}
+
+function writeWord(idx: number, word: number) {
+	varsBuffer[idx] = word & 0xff;
+	varsBuffer[idx + 1] = (word >> 8) & 0xff;
+}
+
+function readVarByte(idx: number, field: number) {
+	const varIdx = idx * VAR_RECORD_SIZE + field + 2;
+	return varsBuffer[varIdx];
+}
+
+function writeVarByte(idx: number, field: number, byte: number) {
+	const varIdx = idx * VAR_RECORD_SIZE + field + 2;
+	varsBuffer[varIdx] = byte & 0xff;
+}
+
+export function readVarWord(idx: number, field: number) {
+	const varIdx = idx * VAR_RECORD_SIZE + field + 2;
+	return varsBuffer[varIdx] | (varsBuffer[varIdx + 1] << 8);
+}
+
+function writeVarWord(idx: number, field: number, word: number) {
+	const varIdx = idx * VAR_RECORD_SIZE + field + 2;
+	varsBuffer[varIdx] = word & 0xff;
+	varsBuffer[varIdx + 1] = (word >> 8) & 0xff;
 }

@@ -3,25 +3,28 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-	"build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
-    "PARSE": "node ./dist/basex.js parse --headers --vars --arrays --strings --lines --code --disasm --logFile out.log ./examples/test_data.bas",
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --outfile=./dist/basex.js --sourcemap --legal-comments=none --target=node18 --external:terminal-kit",
+    "PARSE": "node ./dist/basex.js parse --list --headers --vars --arrays --strings --lines --code --disasm --logFile out.log ./examples/test_data.bas",
     "RUN": "node ./dist/basex.js run --headers --code --lines --disasm --vars --arrays --strings --logFile out.log ./examples/test_data.bas",
-    "format": "rome format .",
-    "lint": "rome check .",
-    "format:fix": "rome format --write .",
-    "lint:fix": "rome check --apply-suggested .",
-    "parse": "node ./dist/basex.js parse --all "
+    "CLI": "node ./dist/basex.js cli --headers --code --lines --disasm --vars --arrays --strings --logFile out.log",
+    "TEST": "node ./dist/basex.js test \"10 print 1 : print 2\"",
+    "format": "biome format ./src",
+    "lint": "biome check ./src",
+    "lint:ci": "biome ci ./src",
+    "lint:fix": "biome check --apply-unsafe ./src",
+    "format:fix": "biome format --write ./src"
   },
   "devDependencies": {
-    "@types/node": "^18.11.18",
-    "@types/terminal-kit": "^2.5.1",
-    "@types/yargs": "^17.0.20",
-    "esbuild": "^0.17.5",
-    "rome": "^11.0.0",
-    "typescript": "^4.9.4"
+    "@biomejs/biome": "^1.3.3",
+    "@types/node": "^20.9.2",
+    "@types/terminal-kit": "^2.5.4",
+    "@types/yargs": "^17.0.31",
+    "esbuild": "^0.19.6",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6"
   },
   "dependencies": {
-    "terminal-kit": "^3.0.0",
-    "yargs": "^17.6.2"
+    "terminal-kit": "^3.0.1",
+    "yargs": "^17.7.2"
   }
 }

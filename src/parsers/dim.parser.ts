@@ -34,7 +34,7 @@ export function parserDim() {
 
 	while (true) {
 		const dim = parseNum();
-		if (isNaN(dim)) return ERRORS.SYNTAX_ERROR;
+		if (Number.isNaN(dim)) return ERRORS.SYNTAX_ERROR;
 
 		dims.push(dim);
 

@@ -26,8 +26,6 @@ import { hexWord } from "./utils";
 const BYTE = 1;
 const WORD = 2;
 
-const STRINGS_COUNT = 57;
-
 const STRING_BLOCK_HEADER_SIZE = 3;
 const STRING_BLOCK_SIZE = 255 - STRING_BLOCK_HEADER_SIZE;
 // const VARNAME_STRING_BLOCK_SIZE = 32 - STRING_BLOCK_HEADER_SIZE;
@@ -42,7 +40,19 @@ const FIELD = {
 	NEXT_BLOCK: 0,
 };
 
+export enum STRING_TYPE {
+	NORMAL = 0,
+	VARNAME = 1,
+	CONSTANT = 2,
+}
+
 let stringArrayIdx = -1;
+let stringsMaxCount = 0;
+
+export function initStrings(maxCount: number) {
+	stringArrayIdx = -1;
+	stringsMaxCount = maxCount;
+}
 
 //
 // create array to hold TStringList
@@ -56,12 +66,12 @@ function createStringIndexesArray() {
 	//    2 + 64 * 4 = 258
 
 	// add a array to store indices to array(of chars used as string)
-	stringArrayIdx = addArray(TYPES.byte, [FIELD_COUNT_SIZE + STRING_RECORD_SIZE * STRINGS_COUNT], 0xca);
+	stringArrayIdx = addArray(TYPES.byte, [FIELD_COUNT_SIZE + STRING_RECORD_SIZE * stringsMaxCount], 0xca);
 	// fist item if the strings count
 	setArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT, 0);
 }
 
-export function createStringArray(length: number, isVarName = false) {
+export function createStringArray(length: number, strType: STRING_TYPE = STRING_TYPE.NORMAL) {
 	if (stringArrayIdx < 0) createStringIndexesArray();
 
 	//
@@ -86,8 +96,8 @@ export function createStringArray(length: number, isVarName = false) {
 	//
 
 	// add block array to store the string (small one if varname)
-	const strLen= isVarName ? length : STRING_BLOCK_SIZE;
-	let arrayIdx = addArray(TYPES.byte, [strLen]) | (isVarName ? 0x8000 : 0x0000);
+	const strLen = strType === STRING_TYPE.NORMAL ? STRING_BLOCK_SIZE : length;
+	let arrayIdx = addArray(TYPES.byte, [strLen]) | (strType === STRING_TYPE.VARNAME ? 0x8000 : 0x0000);
 
 	// add the idx to the string array indices
 	setArrayItem(TYPES.byte, stringArrayIdx, strIdx + FIELD.STRING_ARRAY_IDX, arrayIdx & 0xff);
@@ -117,8 +127,8 @@ export function createString(length: number) {
  * @param isVarName flag to indicate the string is used for a variable name
  * @returns new string count
  */
-export function newString(str: string, isVarName = false) {
-	const strArrayIdx = createStringArray(str.length, isVarName);
+export function newString(str: string, strType: STRING_TYPE = STRING_TYPE.NORMAL) {
+	const strArrayIdx = createStringArray(str.length, strType);
 	const strIdx = getArrayItem(TYPES.int, stringArrayIdx, FIELD.STRING_COUNT) - 1;
 
 	// copy string chars into the new array
@@ -212,7 +222,9 @@ export function setTempStrings() {
 }
 
 export function dumpStrings(out: (...args: string[]) => void) {
-	out("-- STRINGS --", "\n");
+	out("-- STRINGS --\n");
+
+	if (stringArrayIdx < 0) return;
 
 	const strCount = getArrayItem(TYPES.int, stringArrayIdx, 0);
 	out(`array:${stringArrayIdx} count:${strCount}`, "\n");
